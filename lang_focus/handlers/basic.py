@@ -44,8 +44,11 @@ class BasicHandlers:
                 version=self.config.bot_version,
             )
 
+            # Get user context for keyboard
+            user_context = {"has_active_session": False}  # Will be updated by unified handler
+
             # Get main menu keyboard
-            keyboard = self.keyboard_manager.get_main_menu_keyboard(user_language)
+            keyboard = self.keyboard_manager.get_main_menu_keyboard(user_language, user_context)
 
             await update.message.reply_text(welcome_text, reply_markup=keyboard, parse_mode="Markdown")
 
@@ -71,7 +74,7 @@ class BasicHandlers:
 
             help_text = self.locale_manager.format("help_message", language=user_language, available_commands="\n".join(commands))
 
-            keyboard = self.keyboard_manager.get_back_keyboard(user_language)
+            keyboard = self.keyboard_manager.get_back_keyboard(user_language, callback_data="settings")
 
             await update.message.reply_text(help_text, reply_markup=keyboard, parse_mode="Markdown")
 
@@ -98,7 +101,7 @@ class BasicHandlers:
                 version=self.config.bot_version,
             )
 
-            keyboard = self.keyboard_manager.get_back_keyboard(user_language)
+            keyboard = self.keyboard_manager.get_back_keyboard(user_language, callback_data="settings")
 
             await update.message.reply_text(about_text, reply_markup=keyboard, parse_mode="Markdown")
 
@@ -153,7 +156,7 @@ class BasicHandlers:
 
         help_text = self.locale_manager.format("help_message", language=language, available_commands="\n".join(commands))
 
-        keyboard = self.keyboard_manager.get_back_keyboard(language)
+        keyboard = self.keyboard_manager.get_back_keyboard(language, callback_data='settings')
 
         await query.edit_message_text(help_text, reply_markup=keyboard, parse_mode="Markdown")
 
@@ -167,7 +170,7 @@ class BasicHandlers:
             version=self.config.bot_version,
         )
 
-        keyboard = self.keyboard_manager.get_back_keyboard(language)
+        keyboard = self.keyboard_manager.get_back_keyboard(language, callback_data='settings')
 
         await query.edit_message_text(about_text, reply_markup=keyboard, parse_mode="Markdown")
 
@@ -216,6 +219,8 @@ class BasicHandlers:
             version=self.config.bot_version,
         )
 
-        keyboard = self.keyboard_manager.get_main_menu_keyboard(language)
+        # Get user context for keyboard
+        user_context = {"has_active_session": False}  # Will be updated by unified handler
+        keyboard = self.keyboard_manager.get_main_menu_keyboard(language, user_context)
 
         await query.edit_message_text(welcome_text, reply_markup=keyboard, parse_mode="Markdown")

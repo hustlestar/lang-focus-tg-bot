@@ -191,6 +191,30 @@ class OpenRouterProvider:
         """Get current model information."""
         return {"provider": "OpenRouter", "model": self.model, "base_url": self.base_url}
 
+    async def generate_response(self, messages: list, max_tokens: int = 500, temperature: float = 0.3) -> str:
+        """Generate response using messages format for compatibility.
+
+        Args:
+            messages: List of message dictionaries with 'role' and 'content'
+            max_tokens: Maximum tokens to generate
+            temperature: Temperature for response generation
+
+        Returns:
+            Generated response string
+        """
+        # Extract system prompt and user message from messages
+        system_prompt = None
+        user_message = ""
+
+        for message in messages:
+            if message.get("role") == "system":
+                system_prompt = message.get("content")
+            elif message.get("role") == "user":
+                user_message = message.get("content")
+
+        # Use existing get_response method
+        return await self.get_response(user_message, system_prompt=system_prompt)
+
     async def test_connection(self) -> bool:
         """Test the connection to OpenRouter API.
 
@@ -217,6 +241,13 @@ class MockAIProvider:
     async def get_response(self, message: str, user_id: Optional[int] = None, system_prompt: Optional[str] = None) -> str:
         """Return a mock response."""
         return f"Mock response to: {message[:50]}{'...' if len(message) > 50 else ''}"
+
+    async def generate_response(self, messages: list, max_tokens: int = 500, temperature: float = 0.3) -> str:
+        """Return a mock response for compatibility."""
+        if messages and len(messages) > 0:
+            last_message = messages[-1].get("content", "")
+            return f"Mock response to: {last_message[:50]}{'...' if len(last_message) > 50 else ''}"
+        return "Mock response"
 
     async def get_streaming_response(self, message: str, user_id: Optional[int] = None, system_prompt: Optional[str] = None):
         """Return a mock streaming response."""

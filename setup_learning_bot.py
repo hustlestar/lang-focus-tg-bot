@@ -25,17 +25,17 @@ async def setup_bot():
     """Set up the language learning bot."""
     print("🚀 Setting up Language Focus Learning Bot...")
     print("=" * 50)
-    
+
     try:
         # Load configuration
         print("📋 Loading configuration...")
         config = BotConfig.from_env()
         print(f"✅ Configuration loaded for: {config.bot_name}")
-        
+
         # Run database migrations
         print("\n🗄️  Setting up database...")
         migration_manager = MigrationManager(config.database_url)
-        
+
         if migration_manager.has_pending_migrations():
             print("🔄 Applying database migrations...")
             if migration_manager.apply_migrations():
@@ -45,29 +45,29 @@ async def setup_bot():
                 return False
         else:
             print("✅ Database is up to date")
-        
+
         # Load learning data
         print("\n📚 Loading learning data...")
         loader = LearningDataLoader(config.database_url)
         await loader.load_all_data()
-        
+
         # Validate data
         print("🔍 Validating data integrity...")
         validation = await loader.validate_data_integrity()
-        
+
         print(f"📊 Data Summary:")
         print(f"  • Language tricks: {validation['tricks_count']}")
         print(f"  • Training statements: {validation['statements_count']}")
         print(f"  • Difficulty distribution: {validation['difficulty_distribution']}")
-        
-        if validation['is_valid']:
+
+        if validation["is_valid"]:
             print("✅ All data is valid and ready for use!")
         else:
             print("⚠️  Data validation issues detected:")
-            if validation['missing_tricks']:
+            if validation["missing_tricks"]:
                 print(f"  • Missing tricks: {validation['missing_tricks']}")
             return False
-        
+
         # Final setup check
         print("\n🎯 Setup Summary:")
         print(f"  • Bot Name: {config.bot_name}")
@@ -75,15 +75,15 @@ async def setup_bot():
         print(f"  • Support Bot: {'✅' if config.has_support_bot else '❌'}")
         print(f"  • Database: ✅ Ready")
         print(f"  • Learning Data: ✅ Loaded")
-        
+
         print("\n🎉 Setup completed successfully!")
         print("\nNext steps:")
         print("1. Set your environment variables (see .env.example)")
         print("2. Run the bot: python -m lang_focus.main")
         print("3. Start learning with /learn command")
-        
+
         return True
-        
+
     except Exception as e:
         print(f"\n❌ Setup failed: {e}")
         print("\nTroubleshooting:")

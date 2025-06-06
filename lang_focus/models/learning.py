@@ -3,7 +3,21 @@
 This module defines the learning tables schema for the language tricks system.
 """
 
-from sqlalchemy import Table, Column, Integer, String, Text, DateTime, Boolean, Float, BigInteger, ForeignKey, CheckConstraint, UniqueConstraint, Index
+from sqlalchemy import (
+    Table,
+    Column,
+    Integer,
+    String,
+    Text,
+    DateTime,
+    Boolean,
+    Float,
+    BigInteger,
+    ForeignKey,
+    CheckConstraint,
+    UniqueConstraint,
+    Index,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 

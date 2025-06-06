@@ -15,5 +15,20 @@
   "support_welcome": "👋 Welcome to support!\n\nSend your message and our team will help you as soon as possible.",
   "support_reply": "💬 **Support Reply:**\n\n{answer}",
   "support_use_reply": "ℹ️ Please reply to a user message to send a response.",
-  "unknown_command": "❓ Unknown command. Type /help for available commands."
+  "unknown_command": "❓ Unknown command. Type /help for available commands.",
+  "learn_button": "Start Learning",
+  "continue_button": "Continue Session",
+  "progress_button": "My Progress",
+  "tricks_button": "All Tricks",
+  "stats_button": "Statistics",
+  "learning_menu": "🎓 Learning Menu",
+  "main_menu": "🏠 Main Menu",
+  "session_required": "This action requires an active learning session. Start learning first!",
+  "no_session_available": "No active session found. Use 'Start Learning' to begin.",
+  "back_to_main": "🔙 Main Menu",
+  "back_to_parent": "🔙 Back",
+  "back_to_tricks": "🔙 All Tricks",
+  "back_to_progress": "🔙 My Progress",
+  "back_to_settings": "🔙 Settings",
+  "back_to_challenge": "🔙 Back to Challenge"
 }

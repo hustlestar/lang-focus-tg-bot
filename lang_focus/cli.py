@@ -226,32 +226,33 @@ def migrate():
 @cli.command()
 def init_data():
     """Initialize learning data from JSON files."""
+
     async def _init():
         try:
             config = BotConfig.from_env()
             loader = LearningDataLoader(config.database_url)
-            
+
             click.echo("🔄 Loading language tricks and training statements...")
             await loader.load_all_data()
-            
+
             # Validate data integrity
             validation = await loader.validate_data_integrity()
-            
+
             click.echo(f"✅ Data loaded successfully!")
             click.echo(f"📚 Language tricks: {validation['tricks_count']}")
             click.echo(f"💬 Training statements: {validation['statements_count']}")
             click.echo(f"📊 Difficulty distribution: {validation['difficulty_distribution']}")
-            
-            if validation['is_valid']:
+
+            if validation["is_valid"]:
                 click.echo("🎉 All data is valid and ready for use!")
             else:
                 click.echo("⚠️  Data validation issues detected")
-                if validation['missing_tricks']:
+                if validation["missing_tricks"]:
                     click.echo(f"Missing tricks: {validation['missing_tricks']}")
-                    
+
         except Exception as e:
             click.echo(f"❌ Error loading data: {e}", err=True)
-    
+
     asyncio.run(_init())
 
 

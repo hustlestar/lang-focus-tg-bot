@@ -17,20 +17,34 @@ class KeyboardManager:
         self.locale_manager = locale_manager
         self._keyboards_cache: Dict[str, InlineKeyboardMarkup] = {}
 
-    def get_main_menu_keyboard(self, language: str = "en") -> InlineKeyboardMarkup:
-        """Get the main menu keyboard."""
-        cache_key = f"main_menu_{language}"
+    def get_main_menu_keyboard(self, language: str = "en", user_context: dict = None) -> InlineKeyboardMarkup:
+        """Get the main menu keyboard with learning commands."""
+        user_context = user_context or {}
+        has_active_session = user_context.get("has_active_session", False)
 
-        if cache_key not in self._keyboards_cache:
-            keyboard = [
-                [InlineKeyboardButton(self.locale_manager.get("help", language), callback_data="help")],
-                [InlineKeyboardButton(self.locale_manager.get("about", language), callback_data="about")],
-                [InlineKeyboardButton(self.locale_manager.get("settings", language), callback_data="settings")],
-            ]
+        # Don't cache context-aware keyboards
+        keyboard = []
 
-            self._keyboards_cache[cache_key] = InlineKeyboardMarkup(keyboard)
+        # Learning section
+        learning_row1 = [InlineKeyboardButton(f"📚 {self.locale_manager.get('learn_button', language)}", callback_data="cmd_learn")]
 
-        return self._keyboards_cache[cache_key]
+        if has_active_session:
+            learning_row1.append(
+                InlineKeyboardButton(f"▶️ {self.locale_manager.get('continue_button', language)}", callback_data="cmd_continue")
+            )
+
+        keyboard.append(learning_row1)
+
+        learning_row2 = [
+            InlineKeyboardButton(f"📊 {self.locale_manager.get('progress_button', language)}", callback_data="cmd_progress"),
+        ]
+        keyboard.append(learning_row2)
+        keyboard.append([InlineKeyboardButton(f"🎭 {self.locale_manager.get('tricks_button', language)}", callback_data="cmd_tricks")])
+        # Settings
+        settings_row = [InlineKeyboardButton(self.locale_manager.get("settings", language), callback_data="settings")]
+        keyboard.append(settings_row)
+
+        return InlineKeyboardMarkup(keyboard)
 
     def get_settings_keyboard(self, language: str = "en") -> InlineKeyboardMarkup:
         """Get the settings keyboard."""
@@ -38,6 +52,8 @@ class KeyboardManager:
 
         if cache_key not in self._keyboards_cache:
             keyboard = [
+                [InlineKeyboardButton(self.locale_manager.get("help", language), callback_data="help")],
+                [InlineKeyboardButton(self.locale_manager.get("about", language), callback_data="about")],
                 [InlineKeyboardButton(self.locale_manager.get("language", language), callback_data="change_language")],
                 [InlineKeyboardButton(self.locale_manager.get("back_to_menu", language), callback_data="back_to_menu")],
             ]
@@ -190,10 +206,59 @@ class KeyboardManager:
         return InlineKeyboardMarkup(keyboard)
 
     def add_back_button(
-        self, keyboard: InlineKeyboardMarkup, language: str = "en", callback_data: str = "back_to_menu"
+            self, keyboard: InlineKeyboardMarkup, language: str = "en", callback_data: str = "back_to_menu"
     ) -> InlineKeyboardMarkup:
         """Add a back button to an existing keyboard."""
         buttons = keyboard.inline_keyboard.copy()
         buttons.append([InlineKeyboardButton(self.locale_manager.get("back_to_menu", language), callback_data=callback_data)])
 
         return InlineKeyboardMarkup(buttons)
+
+    def get_learning_menu_keyboard(self, language: str = "en", user_context: dict = None) -> InlineKeyboardMarkup:
+        """Generate learning-specific menu."""
+        user_context = user_context or {}
+        has_active_session = user_context.get("has_active_session", False)
+
+        keyboard = []
+
+        # Primary learning actions
+        if has_active_session:
+            keyboard.append(
+                [InlineKeyboardButton(f"▶️ {self.locale_manager.get('continue_button', language)}", callback_data="cmd_continue")]
+            )
+
+        keyboard.append([InlineKeyboardButton(f"📚 {self.locale_manager.get('learn_button', language)}", callback_data="cmd_learn")])
+
+        # Information and progress
+        keyboard.extend(
+            [
+                [
+                    InlineKeyboardButton(f"📊 {self.locale_manager.get('progress_button', language)}", callback_data="cmd_progress"),
+                    InlineKeyboardButton(f"📈 {self.locale_manager.get('stats_button', language)}", callback_data="cmd_stats"),
+                ],
+                [InlineKeyboardButton(f"🎭 {self.locale_manager.get('tricks_button', language)}", callback_data="cmd_tricks")],
+                [InlineKeyboardButton(self.locale_manager.get("back_to_menu", language), callback_data="back_to_menu")],
+            ]
+        )
+
+        return InlineKeyboardMarkup(keyboard)
+
+    def create_action_keyboard(self, actions: List[str], language: str = "en", user_context: dict = None) -> InlineKeyboardMarkup:
+        """Create keyboard from action list."""
+        from lang_focus.handlers.unified_handler import ActionRegistry
+
+        keyboard = []
+        action_registry = ActionRegistry()
+        user_context = user_context or {}
+
+        for action_name in actions:
+            action = action_registry.get_action(action_name)
+            if action:
+                # Check if action should be shown based on context
+                if action.requires_session and not user_context.get("has_active_session", False):
+                    continue
+
+                button_text = f"{action.emoji} {self.locale_manager.get(action.menu_text_key, language)}"
+                keyboard.append([InlineKeyboardButton(button_text, callback_data=action.callback_data)])
+
+        return InlineKeyboardMarkup(keyboard)

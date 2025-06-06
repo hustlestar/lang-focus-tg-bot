@@ -14,6 +14,7 @@ from lang_focus.core.locale_manager import LocaleManager
 from lang_focus.handlers.basic import BasicHandlers
 from lang_focus.handlers.message import MessageHandler as MessageHandlerClass
 from lang_focus.handlers.learning import LearningHandlers
+from lang_focus.handlers.unified_handler import UnifiedBotHandler
 from lang_focus.support.bot import SupportBot
 from lang_focus.learning import LearningDataLoader
 from lang_focus.utils.helpers import setup_logging
@@ -39,7 +40,8 @@ class TelegramBot:
         self.basic_handlers: Optional[BasicHandlers] = None
         self.message_handler: Optional[MessageHandlerClass] = None
         self.learning_handlers: Optional[LearningHandlers] = None
-        
+        self.unified_handler: Optional[UnifiedBotHandler] = None
+
         # Learning components
         self.data_loader: Optional[LearningDataLoader] = None
 
@@ -119,6 +121,19 @@ class TelegramBot:
                 )
                 logger.info("Learning handlers initialized")
 
+            # Initialize unified handler
+            self.unified_handler = UnifiedBotHandler(
+                locale_manager=self.locale_manager,
+                keyboard_manager=self.keyboard_manager,
+                database=self.database,
+                ai_provider=self.ai_provider,
+                config=self.config,
+            )
+
+            # Set handlers for unified handler
+            self.unified_handler.set_handlers(self.basic_handlers, self.learning_handlers)
+            logger.info("Unified handler initialized")
+
             # Create Telegram application
             self.app = Application.builder().token(self.config.bot_token).build()
 
@@ -136,35 +151,27 @@ class TelegramBot:
         if not self.app:
             raise RuntimeError("Application not initialized")
 
-        # Command handlers
-        self.app.add_handler(CommandHandler("start", self.basic_handlers.start_command))
-        self.app.add_handler(CommandHandler("help", self.basic_handlers.help_command))
-        self.app.add_handler(CommandHandler("about", self.basic_handlers.about_command))
+        # Command handlers - route through unified handler
+        self.app.add_handler(CommandHandler("start", self.unified_handler.handle_start_command))
+        self.app.add_handler(CommandHandler("help", lambda u, c: self.unified_handler.handle_command(u, c, "help")))
+        self.app.add_handler(CommandHandler("about", lambda u, c: self.unified_handler.handle_command(u, c, "about")))
 
         # Learning command handlers (if learning handlers are available)
         if self.learning_handlers:
-            self.app.add_handler(CommandHandler("learn", self.learning_handlers.learn_command))
-            self.app.add_handler(CommandHandler("continue", self.learning_handlers.continue_command))
-            self.app.add_handler(CommandHandler("progress", self.learning_handlers.progress_command))
-            self.app.add_handler(CommandHandler("tricks", self.learning_handlers.tricks_command))
-            self.app.add_handler(CommandHandler("stats", self.learning_handlers.stats_command))
+            self.app.add_handler(CommandHandler("learn", lambda u, c: self.unified_handler.handle_command(u, c, "learn")))
+            self.app.add_handler(CommandHandler("continue", lambda u, c: self.unified_handler.handle_command(u, c, "continue")))
+            self.app.add_handler(CommandHandler("progress", lambda u, c: self.unified_handler.handle_command(u, c, "progress")))
+            self.app.add_handler(CommandHandler("tricks", lambda u, c: self.unified_handler.handle_command(u, c, "tricks")))
+            self.app.add_handler(CommandHandler("stats", lambda u, c: self.unified_handler.handle_command(u, c, "stats")))
 
-        # Callback query handlers - learning handlers take priority
-        if self.learning_handlers:
-            self.app.add_handler(CallbackQueryHandler(self.learning_handlers.handle_callback_query))
-        self.app.add_handler(CallbackQueryHandler(self.basic_handlers.callback_query_handler))
+        # Unified callback query handler
+        self.app.add_handler(CallbackQueryHandler(self.unified_handler.handle_callback))
 
         # Message handlers - prioritize learning responses if in session
         if self.learning_handlers:
-            self.app.add_handler(MessageHandler(
-                filters.TEXT & ~filters.COMMAND,
-                self.learning_handlers.handle_learning_response
-            ))
+            self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.learning_handlers.handle_learning_response))
         else:
-            self.app.add_handler(MessageHandler(
-                filters.TEXT & ~filters.COMMAND,
-                self.message_handler.handle_text_message
-            ))
+            self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.message_handler.handle_text_message))
 
         self.app.add_handler(MessageHandler(filters.PHOTO, self.message_handler.handle_photo))
 
