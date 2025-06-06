@@ -55,7 +55,7 @@ class KeyboardManager:
                 [InlineKeyboardButton(self.locale_manager.get("help", language), callback_data="help")],
                 [InlineKeyboardButton(self.locale_manager.get("about", language), callback_data="about")],
                 [InlineKeyboardButton(self.locale_manager.get("language", language), callback_data="change_language")],
-                [InlineKeyboardButton(self.locale_manager.get("back_to_menu", language), callback_data="back_to_menu")],
+                [InlineKeyboardButton(self.locale_manager.get("back_to_main", language), callback_data="back_to_main")],
             ]
 
             self._keyboards_cache[cache_key] = InlineKeyboardMarkup(keyboard)
@@ -79,16 +79,16 @@ class KeyboardManager:
             keyboard.append([InlineKeyboardButton(text, callback_data=f"set_language_{lang}")])
 
         # Add back button
-        keyboard.append([InlineKeyboardButton(self.locale_manager.get("back_to_menu", current_language), callback_data="settings")])
+        keyboard.append([InlineKeyboardButton(self.locale_manager.get("back_to_main", current_language), callback_data="settings")])
 
         return InlineKeyboardMarkup(keyboard)
 
-    def get_back_keyboard(self, language: str = "en", callback_data: str = "back_to_menu") -> InlineKeyboardMarkup:
+    def get_back_keyboard(self, language: str = "en", callback_data: str = "back_to_main") -> InlineKeyboardMarkup:
         """Get a simple back button keyboard."""
         cache_key = f"back_{callback_data}_{language}"
 
         if cache_key not in self._keyboards_cache:
-            keyboard = [[InlineKeyboardButton(self.locale_manager.get("back_to_menu", language), callback_data=callback_data)]]
+            keyboard = [[InlineKeyboardButton(self.locale_manager.get("back_to_main", language), callback_data=callback_data)]]
 
             self._keyboards_cache[cache_key] = InlineKeyboardMarkup(keyboard)
 
@@ -98,7 +98,7 @@ class KeyboardManager:
         """Get a confirmation keyboard with Yes/No buttons."""
         keyboard = [
             [InlineKeyboardButton("✅ Yes", callback_data=f"{action}_yes"), InlineKeyboardButton("❌ No", callback_data=f"{action}_no")],
-            [InlineKeyboardButton(self.locale_manager.get("back_to_menu", language), callback_data="back_to_menu")],
+            [InlineKeyboardButton(self.locale_manager.get("back_to_main", language), callback_data="back_to_main")],
         ]
 
         return InlineKeyboardMarkup(keyboard)
@@ -166,7 +166,7 @@ class KeyboardManager:
         keyboard = [
             [InlineKeyboardButton("📊 Stats", callback_data="admin_stats")],
             [InlineKeyboardButton("📢 Broadcast", callback_data="admin_broadcast")],
-            [InlineKeyboardButton(self.locale_manager.get("back_to_menu", language), callback_data="back_to_menu")],
+            [InlineKeyboardButton(self.locale_manager.get("back_to_main", language), callback_data="back_to_main")],
         ]
 
         return InlineKeyboardMarkup(keyboard)
@@ -206,11 +206,11 @@ class KeyboardManager:
         return InlineKeyboardMarkup(keyboard)
 
     def add_back_button(
-            self, keyboard: InlineKeyboardMarkup, language: str = "en", callback_data: str = "back_to_menu"
+            self, keyboard: InlineKeyboardMarkup, language: str = "en", callback_data: str = "back_to_main"
     ) -> InlineKeyboardMarkup:
         """Add a back button to an existing keyboard."""
         buttons = keyboard.inline_keyboard.copy()
-        buttons.append([InlineKeyboardButton(self.locale_manager.get("back_to_menu", language), callback_data=callback_data)])
+        buttons.append([InlineKeyboardButton(self.locale_manager.get("back_to_main", language), callback_data=callback_data)])
 
         return InlineKeyboardMarkup(buttons)
 
@@ -237,7 +237,7 @@ class KeyboardManager:
                     InlineKeyboardButton(f"📈 {self.locale_manager.get('stats_button', language)}", callback_data="cmd_stats"),
                 ],
                 [InlineKeyboardButton(f"🎭 {self.locale_manager.get('tricks_button', language)}", callback_data="cmd_tricks")],
-                [InlineKeyboardButton(self.locale_manager.get("back_to_menu", language), callback_data="back_to_menu")],
+                [InlineKeyboardButton(self.locale_manager.get("back_to_main", language), callback_data="back_to_main")],
             ]
         )
 
@@ -245,7 +245,7 @@ class KeyboardManager:
 
     def create_action_keyboard(self, actions: List[str], language: str = "en", user_context: dict = None) -> InlineKeyboardMarkup:
         """Create keyboard from action list."""
-        from lang_focus.handlers.unified_handler import ActionRegistry
+        from lang_focus.handlers.action_registry import ActionRegistry
 
         keyboard = []
         action_registry = ActionRegistry()

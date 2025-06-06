@@ -4,7 +4,7 @@
   "about_message": "ℹ️ **About {bot_name}**\n\n{description}\n\n*Version:* {version}\n\nBuilt with the Simplified Telegram Bot Template",
   "language_changed": "✅ Language changed to English",
   "language_selection": "🌐 Please select your language:",
-  "back_to_menu": "🔙 Back to Menu",
+  "back_to_main": "🔙 Back to Menu",
   "help": "ℹ️ Help",
   "about": "ℹ️ About",
   "settings": "⚙️ Settings",
@@ -30,5 +30,12 @@
   "back_to_tricks": "🔙 All Tricks",
   "back_to_progress": "🔙 My Progress",
   "back_to_settings": "🔙 Settings",
-  "back_to_challenge": "🔙 Back to Challenge"
+  "back_to_challenge": "🔙 Back to Challenge",
+  "first_time": "👋 Welcome to learning language tricks!\n\nLanguage tricks are verbal reframing techniques that help:\n• Change perception of situations\n• Find new perspectives\n• Communicate and persuade effectively\n\nYou will learn 14 different techniques through practical exercises.\n\nReady to start? Press /learn",
+  "returning_user": "Welcome back! 👋\n\nYour progress:\n• Mastered tricks: {mastered_tricks}/14\n• Overall progress: {overall_progress}%\n• Last session: {last_session}\n\nContinue learning: /continue\nStart new session: /learn",
+  "subscription_required": "🔒 You need to subscribe to our channel to access the bot!\n\nSubscribe to the channel and get access to learning language tricks.",
+  "ask_to_subscribe": "📢 Subscribe to Channel",
+  "user_confirm_subscribed": "✅ I Subscribed",
+  "subscription_verified": "🎉 Great! Subscription confirmed. Welcome!",
+  "subscription_failed": "❌ Subscription not found. Please subscribe to the channel and try again."
 }

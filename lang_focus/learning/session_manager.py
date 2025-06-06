@@ -10,17 +10,17 @@ This module handles:
 
 import json
 import logging
-from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
+from datetime import datetime, timedelta, UTC
 from enum import Enum
+from typing import Dict, List, Any, Optional
 
 import asyncpg
 
-from lang_focus.learning.trick_engine import TrickEngine, LanguageTrick
+from lang_focus.learning.data_loader import LearningDataLoader
 from lang_focus.learning.feedback_engine import FeedbackEngine, Feedback
 from lang_focus.learning.progress_tracker import ProgressTracker
-from lang_focus.learning.data_loader import LearningDataLoader
+from lang_focus.learning.trick_engine import TrickEngine
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ class LearningSession:
                 return self.completed_at - self.started_at
 
         # For ongoing sessions, use current time
-        now = datetime.now()
+        now = datetime.now(UTC)
         if self.started_at.tzinfo is not None and now.tzinfo is None:
             # started_at is timezone-aware, now is naive
             now = now.replace(tzinfo=self.started_at.tzinfo)
@@ -156,7 +156,7 @@ class LearningSessionManager:
                 session_data={},
                 status=SessionStatus.ACTIVE,
                 current_trick_index=0,
-                started_at=datetime.now(),
+                started_at=datetime.now(UTC),
             )
 
             logger.info(f"Started new session {session_id} for user {user_id}")
@@ -236,6 +236,37 @@ class LearningSessionManager:
             attempt_number=attempt_number,
         )
 
+    async def get_current_challenge(self, session: LearningSession) -> Optional[Challenge]:
+        """Get the current challenge for retry (same trick, same statement)."""
+        # Handle None values for current_trick_index
+        current_index = session.current_trick_index or 0
+
+        # If we haven't started any tricks yet, start with trick 1
+        if current_index == 0:
+            current_trick_id = 1
+        else:
+            current_trick_id = current_index
+
+        # Get trick and statement data
+        trick = await self.trick_engine.get_trick_by_id(current_trick_id)
+        statement = await self.data_loader.get_statement_by_id(session.statement_id)
+        examples = await self.trick_engine.get_random_examples(current_trick_id, count=2)
+
+        # Get attempt number for this trick in this session
+        attempt_number = await self._get_attempt_number(session.id, current_trick_id)
+
+        return Challenge(
+            statement_id=statement["id"],
+            statement_text=statement["statement"],
+            statement_category=statement["category"],
+            statement_difficulty=statement["difficulty"],
+            target_trick_id=trick.id,
+            target_trick_name=trick.name,
+            target_trick_definition=trick.definition,
+            examples=examples,
+            attempt_number=attempt_number,
+        )
+
     async def _get_attempt_number(self, session_id: int, trick_id: int) -> int:
         """Get the attempt number for a trick in this session."""
         conn = await asyncpg.connect(self.database_url)
@@ -277,7 +308,7 @@ class LearningSessionManager:
         return feedback
 
     async def _store_user_response(
-        self, session_id: int, user_id: int, trick_id: int, statement_id: int, response: str, feedback: Feedback, analysis
+            self, session_id: int, user_id: int, trick_id: int, statement_id: int, response: str, feedback: Feedback, analysis
     ) -> None:
         """Store user response and feedback in database."""
         conn = await asyncpg.connect(self.database_url)
@@ -382,7 +413,7 @@ class LearningSessionManager:
 
             session.status = SessionStatus.COMPLETED
             # Ensure completed_at has same timezone awareness as started_at
-            now = datetime.now()
+            now = datetime.now(tz=UTC)
             if session.started_at.tzinfo is not None:
                 # If started_at is timezone-aware, make completed_at timezone-aware too
                 session.completed_at = now.replace(tzinfo=session.started_at.tzinfo)
@@ -517,7 +548,7 @@ class LearningSessionManager:
         """Clean up old abandoned sessions."""
         conn = await asyncpg.connect(self.database_url)
         try:
-            cutoff_date = datetime.now() - timedelta(days=days_old)
+            cutoff_date = datetime.now(UTC) - timedelta(days=days_old)
 
             # Mark old active sessions as abandoned
             count = await conn.fetchval(

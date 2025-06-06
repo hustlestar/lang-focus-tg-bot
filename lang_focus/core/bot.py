@@ -136,7 +136,7 @@ class TelegramBot:
 
             # Create Telegram application
             self.app = Application.builder().token(self.config.bot_token).build()
-
+            self.unified_handler.enable_subscription_manager(self.app.bot)
             # Add handlers to application
             self._add_handlers()
 

@@ -372,6 +372,10 @@ class LearningHandlers:
                 await self._skip_trick(update, context)
             elif query.data == "end_session":
                 await self._end_session(update, context)
+            elif query.data == "retry_trick":
+                await self._retry_current_trick(update, context)
+            elif query.data == "next_trick":
+                await self._proceed_to_next_trick(update, context)
             # Add more callback handlers as needed
 
         except Exception as e:
@@ -437,6 +441,63 @@ class LearningHandlers:
             logger.error(f"Error ending session: {e}")
             await update.callback_query.edit_message_text("❌ Ошибка при завершении сессии.")
 
+    async def _retry_current_trick(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Retry current trick with same statement."""
+        user = update.effective_user
+        if not user:
+            return
+
+        try:
+            session = await self.session_manager.resume_session(user.id)
+            if not session:
+                await update.callback_query.answer("❌ Нет активной сессии.")
+                return
+
+            # Get current challenge (same trick, same statement)
+            challenge = await self.session_manager.get_current_challenge(session)
+            if challenge:
+                # Send new message instead of editing
+                await update.callback_query.answer("🔄 Попробуем еще раз!")
+                await self._send_challenge_message(update, challenge, session)
+            else:
+                await update.callback_query.answer("❌ Не удалось получить текущий фокус.")
+
+        except Exception as e:
+            logger.error(f"Error retrying trick: {e}")
+            await update.callback_query.answer("❌ Ошибка при повторе фокуса.")
+
+    async def _proceed_to_next_trick(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Proceed to next trick, sending new message."""
+        user = update.effective_user
+        if not user:
+            return
+
+        try:
+            session = await self.session_manager.resume_session(user.id)
+            if not session:
+                await update.callback_query.answer("❌ Нет активной сессии.")
+                return
+
+            # Move to next trick
+            current_index = session.current_trick_index or 0
+            await self.session_manager.update_session_progress(session, current_index + 1)
+
+            # Get next challenge
+            next_challenge = await self.session_manager.get_next_challenge(session)
+            if next_challenge:
+                # Send new message instead of editing
+                await update.callback_query.answer("➡️ Переходим к следующему фокусу!")
+                await self._send_challenge_message(update, next_challenge, session)
+            else:
+                # Session complete
+                await update.callback_query.answer("🎓 Сессия завершена!")
+                summary = await self.session_manager.complete_session(session)
+                await self._present_session_summary_callback(None, summary, is_send=True, update=update)
+
+        except Exception as e:
+            logger.error(f"Error proceeding to next trick: {e}")
+            await update.callback_query.answer("❌ Ошибка при переходе к следующему фокусу.")
+
     async def _present_challenge_callback(self, query, challenge: Challenge, session: LearningSession) -> None:
         """Present a learning challenge via callback query."""
         message = f"🎯 **Фокус {challenge.target_trick_id}: {challenge.target_trick_name}**\n\n"
@@ -462,7 +523,7 @@ class LearningHandlers:
 
         await query.edit_message_text(message, reply_markup=reply_markup, parse_mode="Markdown")
 
-    async def _present_session_summary_callback(self, query, summary) -> None:
+    async def _present_session_summary_callback(self, query, summary, is_send=False, update=None) -> None:
         """Present session completion summary via callback query."""
         duration_minutes = summary.duration.total_seconds() / 60
 
@@ -492,4 +553,34 @@ class LearningHandlers:
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        await query.edit_message_text(message, reply_markup=reply_markup, parse_mode="Markdown")
+        if not is_send and query:
+            await query.edit_message_text(message, reply_markup=reply_markup, parse_mode="Markdown")
+        elif update and is_send:
+            await update.effective_chat.send_message(message, reply_markup=reply_markup, parse_mode="Markdown")
+
+
+    async def _send_challenge_message(self, update: Update, challenge: Challenge, session: LearningSession) -> None:
+        """Send a new challenge message from callback query."""
+        message = f"🎯 **Фокус {challenge.target_trick_id}: {challenge.target_trick_name}**\n\n"
+        message += f"📝 **Определение:** {challenge.target_trick_definition}\n\n"
+        message += f'💭 **Утверждение для работы:**\n*"{challenge.statement_text}"*\n\n'
+        message += f'🎭 **Ваша задача:** Примените фокус "{challenge.target_trick_name}" к данному утверждению.\n\n'
+
+        if challenge.examples:
+            message += f"💡 **Примеры применения:**\n"
+            for example in challenge.examples:
+                message += f"• {example}\n"
+            message += "\n"
+
+        message += f"✍️ Напишите свой ответ, используя этот фокус:"
+
+        # Add keyboard for help and skip
+        keyboard = [
+            [InlineKeyboardButton("💡 Подсказка", callback_data=f"hint_{challenge.target_trick_id}")],
+            [InlineKeyboardButton("⏭ Пропустить", callback_data=f"skip_{challenge.target_trick_id}")],
+            [InlineKeyboardButton("🛑 Завершить сессию", callback_data="end_session")],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        # Send new message to the chat
+        await update.effective_chat.send_message(message, reply_markup=reply_markup, parse_mode="Markdown")

@@ -5,153 +5,33 @@ and callback queries, ensuring consistent behavior regardless of input method.
 """
 
 import logging
-from typing import Optional, Callable, Dict, List
+from typing import Optional
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
+from lang_focus.config.settings import BotConfig
+from lang_focus.core.ai_provider import OpenRouterProvider
 from lang_focus.core.database import DatabaseManager
 from lang_focus.core.keyboard_manager import KeyboardManager
 from lang_focus.core.locale_manager import LocaleManager
-from lang_focus.core.ai_provider import OpenRouterProvider
-from lang_focus.config.settings import BotConfig
 from lang_focus.core.models import BotAction, ActionContext
+from lang_focus.core.subscription_manager import SubscriptionManager
+from lang_focus.handlers.action_registry import ActionRegistry
 
 logger = logging.getLogger(__name__)
-
-
-class ActionRegistry:
-    """Registry for all bot actions."""
-
-    def __init__(self):
-        self.actions: Dict[str, BotAction] = {}
-        self._initialize_actions()
-
-    def _initialize_actions(self):
-        """Initialize all available actions."""
-        # Learning Actions
-        self.actions.update(
-            {
-                "learn": BotAction(
-                    name="learn",
-                    handler=None,  # Will be set by UnifiedBotHandler
-                    requires_session=False,
-                    menu_text_key="learn_button",
-                    emoji="📚",
-                    callback_data="cmd_learn",
-                    category="learning",
-                    description="Start a new learning session",
-                ),
-                "continue": BotAction(
-                    name="continue",
-                    handler=None,
-                    requires_session=True,
-                    menu_text_key="continue_button",
-                    emoji="▶️",
-                    callback_data="cmd_continue",
-                    category="learning",
-                    description="Continue existing learning session",
-                ),
-                "progress": BotAction(
-                    name="progress",
-                    handler=None,
-                    requires_session=False,
-                    menu_text_key="progress_button",
-                    emoji="📊",
-                    callback_data="cmd_progress",
-                    category="learning",
-                    description="Show learning progress",
-                ),
-                "tricks": BotAction(
-                    name="tricks",
-                    handler=None,
-                    requires_session=False,
-                    menu_text_key="tricks_button",
-                    emoji="🎭",
-                    callback_data="cmd_tricks",
-                    category="learning",
-                    description="Show all language tricks",
-                ),
-                "stats": BotAction(
-                    name="stats",
-                    handler=None,
-                    requires_session=False,
-                    menu_text_key="stats_button",
-                    emoji="📈",
-                    callback_data="cmd_stats",
-                    category="learning",
-                    description="Show detailed statistics",
-                ),
-                # Basic Actions
-                "help": BotAction(
-                    name="help",
-                    handler=None,
-                    requires_session=False,
-                    menu_text_key="help",
-                    emoji="ℹ️",
-                    callback_data="help",
-                    category="basic",
-                    description="Show help information",
-                ),
-                "about": BotAction(
-                    name="about",
-                    handler=None,
-                    requires_session=False,
-                    menu_text_key="about",
-                    emoji="ℹ️",
-                    callback_data="about",
-                    category="basic",
-                    description="Show bot information",
-                ),
-                "settings": BotAction(
-                    name="settings",
-                    handler=None,
-                    requires_session=False,
-                    menu_text_key="settings",
-                    emoji="⚙️",
-                    callback_data="settings",
-                    category="basic",
-                    description="Show settings menu",
-                ),
-            }
-        )
-
-    def get_action(self, name: str) -> Optional[BotAction]:
-        """Get action by name."""
-        return self.actions.get(name)
-
-    def get_actions_by_category(self, category: str) -> List[BotAction]:
-        """Get all actions in a category."""
-        return [action for action in self.actions.values() if action.category == category]
-
-    def get_available_actions(self, has_active_session: bool = False) -> List[BotAction]:
-        """Get actions available based on context."""
-        available = []
-        for action in self.actions.values():
-            if action.requires_session and not has_active_session:
-                continue
-            available.append(action)
-        return available
-
-    def register_action(self, action: BotAction):
-        """Register a new action."""
-        self.actions[action.name] = action
-
-    def set_handler(self, action_name: str, handler: Callable):
-        """Set handler for an action."""
-        if action_name in self.actions:
-            self.actions[action_name].handler = handler
 
 
 class UnifiedBotHandler:
     """Unified handler for both commands and callbacks."""
 
     def __init__(
-        self,
-        locale_manager: LocaleManager,
-        keyboard_manager: KeyboardManager,
-        database: DatabaseManager,
-        ai_provider: Optional[OpenRouterProvider],
-        config: BotConfig,
+            self,
+            locale_manager: LocaleManager,
+            keyboard_manager: KeyboardManager,
+            database: DatabaseManager,
+            ai_provider: Optional[OpenRouterProvider],
+            config: BotConfig,
     ):
         self.locale_manager = locale_manager
         self.keyboard_manager = keyboard_manager
@@ -161,11 +41,16 @@ class UnifiedBotHandler:
 
         self.action_registry = ActionRegistry()
 
+        # Initialize subscription manager
+        self.subscription_manager = None
         # Initialize handlers (will be set by bot setup)
         self.basic_handlers = None
         self.learning_handlers = None
 
         logger.info("Unified bot handler initialized")
+
+    def enable_subscription_manager(self, bot):
+        self.subscription_manager = SubscriptionManager(bot, self.config, self.database, self.locale_manager)
 
     def set_handlers(self, basic_handlers, learning_handlers=None):
         """Set the basic and learning handlers."""
@@ -191,10 +76,32 @@ class UnifiedBotHandler:
             self.action_registry.set_handler("tricks", self._handle_tricks_action)
             self.action_registry.set_handler("stats", self._handle_stats_action)
 
+    async def handle_subscription(self, update: Update):
+        user = update.effective_user
+
+        if not user:
+            return True
+
+        # Ensure user exists in database
+        user_data = await self.database.ensure_user(user_id=user.id, username=user.username, language=self.config.default_language)
+        user_language = user_data.get("language", self.config.default_language)
+        # Check subscription if required
+        if self.subscription_manager and self.config.subscription_required:
+            is_subscribed = await self.subscription_manager.is_subscribed(user.id)
+
+            if not is_subscribed:
+                # Show subscription required message
+                subscription_text = self.locale_manager.get("subscription_required", user_language)
+                keyboard = self.subscription_manager.get_subscription_keyboard(user_language)
+                await update.message.reply_text(subscription_text, reply_markup=keyboard, parse_mode="Markdown")
+                logger.info(f"User {user.id} (@{user.username}) needs to subscribe")
+                return True
+
+        return False
+
     async def handle_start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command with enhanced main menu."""
         user = update.effective_user
-        chat = update.effective_chat
 
         if not user:
             return
@@ -205,14 +112,17 @@ class UnifiedBotHandler:
 
             user_language = user_data.get("language", self.config.default_language)
 
-            # Get welcome message
-            welcome_text = self.locale_manager.format(
-                "welcome_message",
-                language=user_language,
-                bot_name=self.config.bot_name,
-                description=self.config.bot_description,
-                version=self.config.bot_version,
-            )
+            if await self.handle_subscription(update):
+                return
+            # Check if user is first-time or returning
+            is_first_time = await self._is_first_time_user(user.id)
+
+            if is_first_time:
+                # First-time user welcome
+                welcome_text = self.locale_manager.get("first_time", user_language)
+            else:
+                # Returning user welcome with progress
+                welcome_text = await self._get_returning_user_welcome(user.id, user_language)
 
             # Get user context for keyboard
             action_context = await self.extract_context(update, is_callback=False)
@@ -232,6 +142,8 @@ class UnifiedBotHandler:
     async def handle_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE, action_name: str):
         """Handle both commands and callbacks uniformly."""
         try:
+            if await self.handle_subscription(update):
+                return
             action_context = await self.extract_context(update, is_callback=False)
             action = self.action_registry.get_action(action_name)
 
@@ -275,6 +187,9 @@ class UnifiedBotHandler:
                     await self._handle_hint_callback(query, action_context, trick_id)
                 elif query.data.startswith("skip_"):
                     await self._handle_skip_callback(query, action_context)
+                # Subscription handlers
+                elif query.data == "check_subscription":
+                    await self._handle_subscription_check_callback(query, action_context)
                 # Navigation handlers
                 elif query.data == "back_to_main":
                     await self._handle_back_to_main(query, action_context)
@@ -320,8 +235,19 @@ class UnifiedBotHandler:
             chat_id=update.effective_chat.id if update.effective_chat else None,
         )
 
+    async def _check_subscription(self, user_id: int, language: str) -> bool:
+        """Check if user has valid subscription."""
+        if not self.subscription_manager or not self.config.subscription_required:
+            return True
+
+        return await self.subscription_manager.is_subscribed(user_id)
+
     async def execute_action(self, action: BotAction, update: Update, context: ActionContext):
         """Execute an action with proper context."""
+        # Check subscription first (except for basic actions like help/about)
+        if action.category == "learning" and not await self._check_subscription(context.user_id, context.language):
+            return await self._handle_subscription_required(update, context)
+
         # Check if action requires session and user has one
         if action.requires_session and not context.has_active_session:
             return await self.handle_session_required(update, context, action)
@@ -349,6 +275,19 @@ class UnifiedBotHandler:
         else:
             await update.message.reply_text(message, reply_markup=reply_markup)
 
+    async def _handle_subscription_required(self, update: Update, context: ActionContext):
+        """Handle case when subscription is required but user is not subscribed."""
+        if not self.subscription_manager:
+            return
+
+        message = self.locale_manager.get("subscription_required", context.language)
+        keyboard = self.subscription_manager.get_subscription_keyboard(context.language)
+
+        if context.is_callback:
+            await context.callback_query.edit_message_text(message, reply_markup=keyboard, parse_mode="Markdown")
+        else:
+            await update.message.reply_text(message, reply_markup=keyboard, parse_mode="Markdown")
+
     async def handle_unknown_action(self, update: Update, context: ActionContext):
         """Handle unknown action."""
         message = self.locale_manager.get("unknown_command", context.language)
@@ -364,7 +303,7 @@ class UnifiedBotHandler:
             return await self.basic_handlers.callback_query_handler(update, context)
 
     async def _send_response(self, update: Update, context: ActionContext,
-                            text: str, reply_markup=None, parse_mode=None):
+                             text: str, reply_markup=None, parse_mode=None):
         """Unified method to send response via command or callback."""
         try:
             if context.is_callback:
@@ -770,14 +709,9 @@ class UnifiedBotHandler:
             # Get user context for keyboard
             user_context = {"has_active_session": context.has_active_session}
 
+            user_data = await self.database.get_user(user_id=query.from_user.id)
             # Get welcome message
-            welcome_text = self.locale_manager.format(
-                "welcome_message",
-                language=context.language,
-                bot_name=self.config.bot_name,
-                description=self.config.bot_description,
-                version=self.config.bot_version,
-            )
+            welcome_text = await self._get_returning_user_welcome(query.from_user.id, user_data.get('language', self.config.default_language))
 
             # Get main menu keyboard with context
             keyboard = self.keyboard_manager.get_main_menu_keyboard(context.language, user_context)
@@ -804,3 +738,102 @@ class UnifiedBotHandler:
         except Exception as e:
             logger.error(f"Error navigating back to challenge: {e}")
             await query.edit_message_text("❌ Ошибка навигации.")
+
+    async def _is_first_time_user(self, user_id: int) -> bool:
+        """Check if user is using the bot for the first time."""
+        try:
+            if not self.learning_handlers:
+                return True
+
+            # Check if user has any learning sessions
+            session_history = await self.learning_handlers.session_manager.get_session_history(user_id, limit=1)
+            return len(session_history) == 0
+
+        except Exception as e:
+            logger.warning(f"Error checking first-time user status for {user_id}: {e}")
+            return True  # Default to first-time if we can't determine
+
+    async def _get_returning_user_welcome(self, user_id: int, language: str) -> str:
+        """Get welcome message for returning users with progress data."""
+        try:
+            if not self.learning_handlers:
+                return self.locale_manager.get("first_time", language)
+
+            # Get user progress
+            overall_progress = await self.learning_handlers.progress_tracker.calculate_overall_progress(user_id)
+
+            # Get last session info
+            session_history = await self.learning_handlers.session_manager.get_session_history(user_id, limit=1)
+            last_session = "никогда"  # "never" in Russian
+
+            if session_history:
+                last_session_data = session_history[0]
+                if last_session_data.get("completed_at"):
+                    # Format the date nicely
+                    from datetime import datetime
+                    completed_at = last_session_data["completed_at"]
+                    if isinstance(completed_at, str):
+                        # Parse if it's a string
+                        try:
+                            completed_at = datetime.fromisoformat(completed_at.replace('Z', '+00:00'))
+                        except:
+                            pass
+
+                    if hasattr(completed_at, 'strftime'):
+                        last_session = completed_at.strftime("%d.%m.%Y")
+                    else:
+                        last_session = "недавно"  # "recently"
+                else:
+                    last_session = "в процессе"  # "in progress"
+
+            # Format the returning user message
+            welcome_text = self.locale_manager.format(
+                "returning_user",
+                language=language,
+                mastered_tricks=overall_progress.mastered_tricks or 0,
+                overall_progress=f"{overall_progress.completion_percentage:.1f}" if overall_progress.completion_percentage else "0.0",
+                last_session=last_session
+            )
+
+            return welcome_text
+
+        except Exception as e:
+            logger.error(f"Error getting returning user welcome for {user_id}: {e}")
+            # Fallback to first-time message
+            return self.locale_manager.get("first_time", language)
+
+    async def _handle_subscription_check_callback(self, query, context: ActionContext):
+        """Handle subscription verification callback."""
+        try:
+            if not self.subscription_manager:
+                await query.edit_message_text("❌ Subscription manager not available.")
+                return
+
+            is_subscribed, message = await self.subscription_manager.handle_subscription_check(
+                context.user_id, context.language
+            )
+
+            if is_subscribed:
+                # Subscription verified, show welcome message
+                is_first_time = await self._is_first_time_user(context.user_id)
+
+                if is_first_time:
+                    welcome_text = self.locale_manager.get("first_time", context.language)
+                else:
+                    welcome_text = await self._get_returning_user_welcome(context.user_id, context.language)
+
+                # Get user context for keyboard
+                user_context = {"has_active_session": context.has_active_session}
+                keyboard = self.keyboard_manager.get_main_menu_keyboard(context.language, user_context)
+
+                await query.edit_message_text(welcome_text, reply_markup=keyboard, parse_mode="Markdown")
+                logger.info(f"User {context.user_id} subscription verified")
+            else:
+                # Subscription failed, show error with retry option
+                keyboard = self.subscription_manager.get_subscription_keyboard(context.language)
+                await query.edit_message_text(message, reply_markup=keyboard, parse_mode="Markdown")
+                logger.info(f"User {context.user_id} subscription verification failed")
+
+        except Exception as e:
+            logger.error(f"Error handling subscription check: {e}")
+            await query.edit_message_text("❌ Ошибка при проверке подписки.")

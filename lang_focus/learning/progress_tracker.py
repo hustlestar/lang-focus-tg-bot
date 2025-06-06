@@ -9,7 +9,7 @@ This module handles:
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
 
@@ -310,7 +310,7 @@ class ProgressTracker:
                 )
             elif (progress.mastery_level or 0) < 80 and progress.last_practiced:
                 # Medium mastery - check if needs review
-                days_since_practice = (datetime.now() - progress.last_practiced).days
+                days_since_practice = (datetime.now(tz=UTC) - progress.last_practiced).days
                 if days_since_practice > 7:
                     recommendations.append(
                         Recommendation(

@@ -139,9 +139,6 @@ class BasicHandlers:
                 new_language = query.data.split("_")[-1]
                 await self._set_language(query, user.id, new_language)
 
-            elif query.data == "back_to_menu":
-                await self._show_main_menu(query, user_language)
-
             else:
                 logger.warning(f"Unknown callback data: {query.data}")
                 await query.edit_message_text(self.locale_manager.get("unknown_command", user_language))

@@ -50,7 +50,7 @@ class LocaleManager:
             "about_message": "ℹ️ *About {bot_name}*\n\n{description}\n\nVersion: {version}",
             "language_changed": "✅ Language changed to English",
             "language_selection": "🌐 Please select your language:",
-            "back_to_menu": "🔙 Back to Menu",
+            "back_to_main": "🔙 Back to Menu",
             "help": "ℹ️ Help",
             "about": "ℹ️ About",
             "settings": "⚙️ Settings",

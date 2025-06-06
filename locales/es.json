@@ -4,7 +4,7 @@
   "about_message": "ℹ️ **Acerca de {bot_name}**\n\n{description}\n\n*Versión:* {version}\n\nCreado con la plantilla simplificada de Telegram Bot",
   "language_changed": "✅ Idioma cambiado a español",
   "language_selection": "🌐 Por favor, selecciona tu idioma:",
-  "back_to_menu": "🔙 Volver al menú",
+  "back_to_main": "🔙 Volver al menú",
   "help": "ℹ️ Ayuda",
   "about": "ℹ️ Acerca de",
   "settings": "⚙️ Configuración",
@@ -30,5 +30,12 @@
   "back_to_tricks": "🔙 Todos los Trucos",
   "back_to_progress": "🔙 Mi Progreso",
   "back_to_settings": "🔙 Configuración",
-  "back_to_challenge": "🔙 Al Desafío"
+  "back_to_challenge": "🔙 Al Desafío",
+  "first_time": "👋 ¡Bienvenido al aprendizaje de trucos del lenguaje!\n\nLos trucos del lenguaje son técnicas de reencuadre verbal que ayudan a:\n• Cambiar la percepción de situaciones\n• Encontrar nuevas perspectivas\n• Comunicarse y persuadir efectivamente\n\nAprenderás 14 técnicas diferentes a través de ejercicios prácticos.\n\n¿Listo para empezar? Presiona /learn",
+  "returning_user": "¡Bienvenido de vuelta! 👋\n\nTu progreso:\n• Trucos dominados: {mastered_tricks}/14\n• Progreso general: {overall_progress}%\n• Última sesión: {last_session}\n\nContinuar aprendizaje: /continue\nComenzar nueva sesión: /learn",
+  "subscription_required": "🔒 ¡Necesitas suscribirte a nuestro canal para acceder al bot!\n\nSuscríbete al canal y obtén acceso al aprendizaje de trucos del lenguaje.",
+  "ask_to_subscribe": "📢 Suscribirse al Canal",
+  "user_confirm_subscribed": "✅ Me Suscribí",
+  "subscription_verified": "🎉 ¡Excelente! Suscripción confirmada. ¡Bienvenido!",
+  "subscription_failed": "❌ Suscripción no encontrada. Por favor suscríbete al canal e inténtalo de nuevo."
 }

@@ -41,6 +41,11 @@ class BotConfig:
     bot_description: str = "A simple Telegram bot"
     bot_version: str = "1.0.0"
 
+    # Subscription settings
+    subscription_required: bool = True
+    channel_username: Optional[str] = None
+    channel_id: Optional[str] = None
+
     # Logging settings
     log_level: str = "INFO"
 
@@ -80,6 +85,12 @@ class BotConfig:
         supported_languages_str = os.getenv("SUPPORTED_LANGUAGES", "en,ru,es")
         supported_languages = [lang.strip() for lang in supported_languages_str.split(",")]
 
+        # Subscription settings
+        subscription_required_str = os.getenv("SUBSCRIPTION_REQUIRED", "false").lower()
+        subscription_required = subscription_required_str in ("true", "1", "yes", "on")
+        channel_username = os.getenv("CHANNEL_USERNAME")
+        channel_id = os.getenv("CHANNEL_ID")
+
         # Logging
         log_level = os.getenv("LOG_LEVEL", "INFO")
 
@@ -97,6 +108,9 @@ class BotConfig:
             bot_name=bot_name,
             bot_description=bot_description,
             bot_version=bot_version,
+            subscription_required=subscription_required,
+            channel_username=channel_username,
+            channel_id=channel_id,
             log_level=log_level,
         )
 
@@ -133,5 +147,11 @@ class BotConfig:
 
         if self.support_chat_id and not self.support_bot_token:
             logger.warning("Support chat ID provided but no support bot token configured")
+
+        if self.subscription_required and not self.channel_id:
+            logger.warning("Subscription required but no channel ID configured")
+
+        if self.subscription_required and not self.channel_username:
+            logger.warning("Subscription required but no channel username configured")
 
         logger.info("Configuration validation passed")
