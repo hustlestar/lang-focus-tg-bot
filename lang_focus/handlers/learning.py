@@ -277,6 +277,8 @@ class LearningHandlers:
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
+        await self.session_manager.update_session_progress(session, challenge.target_trick_id)
+
         if update.message:
             await update.message.reply_text(message, reply_markup=reply_markup, parse_mode="Markdown")
         elif update.callback_query:
