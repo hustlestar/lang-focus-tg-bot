@@ -593,11 +593,18 @@ class LearningHandlers:
         message += f'💭 **Утверждение для работы:**\n*"{challenge.statement_text}"*\n\n'
         message += f'🎭 **Ваша задача:** Примените фокус "{challenge.target_trick_name}" к данному утверждению.\n\n'
 
-        if challenge.examples:
-            message += f"💡 **Примеры применения:**\n"
-            for example in challenge.examples:
-                message += f"• {example}\n"
-            message += "\n"
+        if challenge.statement_difficulty != "сложный":
+            if challenge.examples:
+                message += f"💡 **Примеры применения:**\n"
+                for example in challenge.examples:
+                    message += f"• {example}\n"
+                message += "\n"
+
+            if challenge.keywords:
+                message += f"🔐 **Ключевые слова:**\n"
+                for keyword in challenge.keywords:
+                    message += f"• {keyword}\n"
+                message += "\n"
 
         message += f"✍️ Напишите свой ответ, используя этот фокус:"
 
