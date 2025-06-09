@@ -46,6 +46,7 @@ class Challenge:
     target_trick_definition: str
     examples: List[str]
     attempt_number: int
+    keywords: List[str]
 
 
 @dataclass
@@ -234,6 +235,7 @@ class LearningSessionManager:
             target_trick_definition=trick.definition,
             examples=examples,
             attempt_number=attempt_number,
+            keywords=trick.keywords
         )
 
     async def get_current_challenge(self, session: LearningSession) -> Optional[Challenge]:
@@ -265,6 +267,7 @@ class LearningSessionManager:
             target_trick_definition=trick.definition,
             examples=examples,
             attempt_number=attempt_number,
+            keywords=trick.keywords
         )
 
     async def _get_attempt_number(self, session_id: int, trick_id: int) -> int:

@@ -260,6 +260,12 @@ class LearningHandlers:
                 message += f"• {example}\n"
             message += "\n"
 
+        if challenge.keywords:
+            message += f"🔐 **Ключевые слова:**\n"
+            for keyword in challenge.keywords:
+                message += f"• {keyword}\n"
+            message += "\n"
+
         message += f"✍️ Напишите свой ответ, используя этот фокус:"
 
         # Add keyboard for help and skip
@@ -521,6 +527,12 @@ class LearningHandlers:
             message += f"💡 **Примеры применения:**\n"
             for example in challenge.examples:
                 message += f"• {example}\n"
+            message += "\n"
+
+        if challenge.keywords:
+            message += f"🔐 **Ключевые слова:**\n"
+            for keyword in challenge.keywords:
+                message += f"• {keyword}\n"
             message += "\n"
 
         message += f"✍️ Напишите свой ответ, используя этот фокус:"
