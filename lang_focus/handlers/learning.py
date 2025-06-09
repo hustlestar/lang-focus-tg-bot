@@ -254,17 +254,18 @@ class LearningHandlers:
         message += f'💭 **Утверждение для работы:**\n*"{challenge.statement_text}"*\n\n'
         message += f'🎭 **Ваша задача:** Примените фокус "{challenge.target_trick_name}" к данному утверждению.\n\n'
 
-        if challenge.examples:
-            message += f"💡 **Примеры применения:**\n"
-            for example in challenge.examples:
-                message += f"• {example}\n"
-            message += "\n"
+        if challenge.statement_difficulty != "сложный":
+            if challenge.examples:
+                message += f"💡 **Примеры применения:**\n"
+                for example in challenge.examples:
+                    message += f"• {example}\n"
+                message += "\n"
 
-        if challenge.keywords:
-            message += f"🔐 **Ключевые слова:**\n"
-            for keyword in challenge.keywords:
-                message += f"• {keyword}\n"
-            message += "\n"
+            if challenge.keywords:
+                message += f"🔐 **Ключевые слова:**\n"
+                for keyword in challenge.keywords:
+                    message += f"• {keyword}\n"
+                message += "\n"
 
         message += f"✍️ Напишите свой ответ, используя этот фокус:"
 
@@ -470,7 +471,7 @@ class LearningHandlers:
             await self.session_manager.update_session_progress(session, trick_id_to_retry)
 
             # Get current challenge (same trick, same statement)
-            challenge = await self.session_manager.get_current_challenge(session) # This will use the updated session.current_trick_index
+            challenge = await self.session_manager.get_current_challenge(session)  # This will use the updated session.current_trick_index
             if challenge:
                 # Send new message instead of editing
                 await update.callback_query.answer("🔄 Попробуем еще раз!")
@@ -523,17 +524,18 @@ class LearningHandlers:
         message += f'💭 **Утверждение для работы:**\n*"{challenge.statement_text}"*\n\n'
         message += f'🎭 **Ваша задача:** Примените фокус "{challenge.target_trick_name}" к данному утверждению.\n\n'
 
-        if challenge.examples:
-            message += f"💡 **Примеры применения:**\n"
-            for example in challenge.examples:
-                message += f"• {example}\n"
-            message += "\n"
+        if challenge.statement_difficulty != "сложный":
+            if challenge.examples:
+                message += f"💡 **Примеры применения:**\n"
+                for example in challenge.examples:
+                    message += f"• {example}\n"
+                message += "\n"
 
-        if challenge.keywords:
-            message += f"🔐 **Ключевые слова:**\n"
-            for keyword in challenge.keywords:
-                message += f"• {keyword}\n"
-            message += "\n"
+            if challenge.keywords:
+                message += f"🔐 **Ключевые слова:**\n"
+                for keyword in challenge.keywords:
+                    message += f"• {keyword}\n"
+                message += "\n"
 
         message += f"✍️ Напишите свой ответ, используя этот фокус:"
 
@@ -581,7 +583,6 @@ class LearningHandlers:
             await query.edit_message_text(message, reply_markup=reply_markup, parse_mode="Markdown")
         elif update and is_send:
             await update.effective_chat.send_message(message, reply_markup=reply_markup, parse_mode="Markdown")
-
 
     async def _send_challenge_message(self, update: Update, challenge: Challenge, session: LearningSession) -> None:
         """Send a new challenge message from callback query."""
