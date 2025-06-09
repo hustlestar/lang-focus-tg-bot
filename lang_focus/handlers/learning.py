@@ -219,8 +219,8 @@ class LearningHandlers:
                 return
 
             # Get current challenge
-            challenge = await self.session_manager.get_next_challenge(session)
-
+            challenge = await self.session_manager.get_current_challenge(session)
+            logger.info(f"Handling challenge response {challenge.target_trick_id} {challenge.target_trick_name}")
             if not challenge:
                 # Session complete
                 summary = await self.session_manager.complete_session(session)
@@ -270,7 +270,10 @@ class LearningHandlers:
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        await update.message.reply_text(message, reply_markup=reply_markup, parse_mode="Markdown")
+        if update.message:
+            await update.message.reply_text(message, reply_markup=reply_markup, parse_mode="Markdown")
+        elif update.callback_query:
+            await update.callback_query.edit_message_text(message, reply_markup=reply_markup, parse_mode="Markdown")
 
     async def _present_feedback(self, update: Update, feedback, challenge: Challenge) -> None:
         """Present feedback to the user."""
@@ -309,8 +312,8 @@ class LearningHandlers:
         # Add keyboard for next actions
         keyboard = []
         if analysis.score < 60:
-            keyboard.append([InlineKeyboardButton("🔄 Попробовать еще раз", callback_data="retry_trick")])
-            keyboard.append([InlineKeyboardButton("➡️ Следующий фокус", callback_data="next_trick")])
+            keyboard.append([InlineKeyboardButton("🔄 Попробовать еще раз", callback_data=f"retry_trick_{challenge.target_trick_id}")])
+            keyboard.append([InlineKeyboardButton("➡️ Следующий фокус", callback_data=f"next_trick_{challenge.target_trick_id}")])
 
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -369,13 +372,16 @@ class LearningHandlers:
                 trick_id = int(query.data.split("_")[1])
                 await self._show_hint(update, trick_id)
             elif query.data.startswith("skip_"):
-                await self._skip_trick(update, context)
+                trick_id_to_skip = int(query.data.split("_")[1])
+                await self._skip_trick(update, context, trick_id_to_skip)
             elif query.data == "end_session":
                 await self._end_session(update, context)
-            elif query.data == "retry_trick":
-                await self._retry_current_trick(update, context)
-            elif query.data == "next_trick":
-                await self._proceed_to_next_trick(update, context)
+            elif query.data.startswith("retry_trick_"):
+                trick_id_to_retry = int(query.data.split("_")[2])
+                await self.retry_current_trick(update, context, trick_id_to_retry)
+            elif query.data.startswith("next_trick_"):
+                current_trick_id = int(query.data.split("_")[2])
+                await self.proceed_to_next_trick(update, context, current_trick_id)
             # Add more callback handlers as needed
 
         except Exception as e:
@@ -402,7 +408,7 @@ class LearningHandlers:
             logger.error(f"Error showing hint: {e}")
             await update.callback_query.edit_message_text("❌ Ошибка при получении подсказки.")
 
-    async def _skip_trick(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    async def _skip_trick(self, update: Update, context: ContextTypes.DEFAULT_TYPE, trick_id_to_skip: int) -> None:
         """Skip current trick and move to next."""
         user = update.effective_user
         if not user:
@@ -411,10 +417,10 @@ class LearningHandlers:
         try:
             session = await self.session_manager.resume_session(user.id)
             if session:
-                # Move to next trick
-                await self.session_manager.update_session_progress(session, session.current_trick_index + 1)
+                # Mark the skipped trick as processed
+                await self.session_manager.update_session_progress(session, trick_id_to_skip + 1)
 
-                next_challenge = await self.session_manager.get_next_challenge(session)
+                next_challenge = await self.session_manager.get_current_challenge(session)
                 if next_challenge:
                     await self._present_challenge(update, next_challenge, session)
                 else:
@@ -441,7 +447,7 @@ class LearningHandlers:
             logger.error(f"Error ending session: {e}")
             await update.callback_query.edit_message_text("❌ Ошибка при завершении сессии.")
 
-    async def _retry_current_trick(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    async def retry_current_trick(self, update: Update, context: ContextTypes.DEFAULT_TYPE, trick_id_to_retry: int) -> None:
         """Retry current trick with same statement."""
         user = update.effective_user
         if not user:
@@ -452,9 +458,13 @@ class LearningHandlers:
             if not session:
                 await update.callback_query.answer("❌ Нет активной сессии.")
                 return
+            # The session's current_trick_index should reflect the trick we are about to retry.
+            # update_session_progress will ensure current_trick_index is set to trick_id_to_retry.
+            # This allows get_current_challenge to fetch the correct challenge.
+            await self.session_manager.update_session_progress(session, trick_id_to_retry)
 
             # Get current challenge (same trick, same statement)
-            challenge = await self.session_manager.get_current_challenge(session)
+            challenge = await self.session_manager.get_current_challenge(session) # This will use the updated session.current_trick_index
             if challenge:
                 # Send new message instead of editing
                 await update.callback_query.answer("🔄 Попробуем еще раз!")
@@ -466,7 +476,7 @@ class LearningHandlers:
             logger.error(f"Error retrying trick: {e}")
             await update.callback_query.answer("❌ Ошибка при повторе фокуса.")
 
-    async def _proceed_to_next_trick(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    async def proceed_to_next_trick(self, update: Update, context: ContextTypes.DEFAULT_TYPE, current_trick_id: int) -> None:
         """Proceed to next trick, sending new message."""
         user = update.effective_user
         if not user:
@@ -478,12 +488,14 @@ class LearningHandlers:
                 await update.callback_query.answer("❌ Нет активной сессии.")
                 return
 
-            # Move to next trick
-            current_index = session.current_trick_index or 0
-            await self.session_manager.update_session_progress(session, current_index + 1)
+            # Mark the current trick as processed.
+            # update_session_progress will set session.current_trick_index to current_trick_id.
+            await self.session_manager.update_session_progress(session, current_trick_id + 1)
 
             # Get next challenge
-            next_challenge = await self.session_manager.get_next_challenge(session)
+            # get_next_challenge will use the updated session.current_trick_index (which is current_trick_id)
+            # to determine the actual next trick (current_trick_id + 1).
+            next_challenge = await self.session_manager.get_current_challenge(session)
             if next_challenge:
                 # Send new message instead of editing
                 await update.callback_query.answer("➡️ Переходим к следующему фокусу!")

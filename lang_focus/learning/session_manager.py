@@ -352,7 +352,7 @@ class LearningSessionManager:
             current_index = session.current_trick_index or 0
             trick_id = completed_trick_id or 0
             new_index = max(current_index, trick_id)
-
+            logger.info(f"Setting current_trick_index to {new_index}")
             await conn.execute(
                 """
                 UPDATE learning_sessions
@@ -493,9 +493,9 @@ class LearningSessionManager:
         # Handle None values safely
         average_mastery = overall_progress.average_mastery or 0
 
-        if average_mastery >= 70:
+        if average_mastery >= 85:
             return "сложный"
-        elif average_mastery >= 40:
+        elif average_mastery >= 66:
             return "средний"
         else:
             return "легкий"

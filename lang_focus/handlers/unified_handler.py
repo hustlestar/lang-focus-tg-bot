@@ -186,7 +186,12 @@ class UnifiedBotHandler:
                     trick_id = int(query.data.split("_")[1])
                     await self._handle_hint_callback(query, action_context, trick_id)
                 elif query.data.startswith("skip_"):
-                    await self._handle_skip_callback(query, action_context)
+                    await self._handle_skip_callback(update, action_context) # Pass the main update object
+                # Learning action handlers
+                elif query.data.startswith("retry_trick"):
+                    await self._handle_retry_trick_callback(update, action_context)
+                elif query.data.startswith("next_trick"):
+                    await self._handle_next_trick_callback(update, action_context)
                 # Subscription handlers
                 elif query.data == "check_subscription":
                     await self._handle_subscription_check_callback(query, action_context)
@@ -201,7 +206,7 @@ class UnifiedBotHandler:
 
         except Exception as e:
             logger.error(f"Error handling callback {query.data}: {e}")
-            await query.edit_message_text("❌ An error occurred. Please try again.")
+            await query.answer("❌ An error occurred. Please try again.")
 
     async def extract_context(self, update: Update, is_callback: bool = False) -> ActionContext:
         """Extract context from either command or callback."""
@@ -678,26 +683,27 @@ class UnifiedBotHandler:
             logger.error(f"Error showing hint: {e}")
             await query.edit_message_text("❌ Ошибка при получении подсказки.")
 
-    async def _handle_skip_callback(self, query, context: ActionContext):
-        """Handle skip callback."""
+    async def _handle_skip_callback(self, update: Update, context: ActionContext): # Changed signature
+        """Handle skip callback by calling the refactored LearningHandlers._skip_trick."""
+        if not self.learning_handlers:
+            await update.callback_query.edit_message_text("❌ Learning handlers not available.")
+            return
+
         try:
-            session = await self.learning_handlers.session_manager.resume_session(context.user_id)
-            if session:
-                # Move to next trick
-                await self.learning_handlers.session_manager.update_session_progress(session, session.current_trick_index + 1)
-
-                next_challenge = await self.learning_handlers.session_manager.get_next_challenge(session)
-                if next_challenge:
-                    await self.learning_handlers._present_challenge_callback(query, next_challenge, session)
-                else:
-                    summary = await self.learning_handlers.session_manager.complete_session(session)
-                    await self.learning_handlers._present_session_summary_callback(query, summary)
-            else:
-                await query.edit_message_text("📚 У вас нет активной сессии.")
-
+            # Extract trick_id from callback_data (e.g., "skip_123")
+            trick_id_to_skip = int(update.callback_query.data.split("_")[1])
+            # Call the refactored method in LearningHandlers
+            # The context object in _skip_trick (ContextTypes.DEFAULT_TYPE) is not used,
+            # so passing ActionContext should be fine.
+            # _skip_trick in LearningHandlers will now send new messages for challenge/summary,
+            # and edit message on error using update.callback_query.
+            await self.learning_handlers._skip_trick(update, context, trick_id_to_skip)
+        except (IndexError, ValueError) as e:
+            logger.error(f"Error parsing trick_id from skip callback_data '{update.callback_query.data}': {e}")
+            await update.callback_query.edit_message_text("❌ Ошибка: неверный формат данных для пропуска.")
         except Exception as e:
-            logger.error(f"Error skipping trick: {e}")
-            await query.edit_message_text("❌ Ошибка при пропуске фокуса.")
+            logger.error(f"Error in _handle_skip_callback: {e}")
+            await update.callback_query.edit_message_text("❌ Ошибка при пропуске фокуса.")
 
     def get_action_registry(self) -> ActionRegistry:
         """Get the action registry."""
@@ -837,3 +843,32 @@ class UnifiedBotHandler:
         except Exception as e:
             logger.error(f"Error handling subscription check: {e}")
             await query.edit_message_text("❌ Ошибка при проверке подписки.")
+
+    async def _handle_retry_trick_callback(self, update, context: ActionContext):
+        """Handle retry trick callback."""
+        if not self.learning_handlers:
+            await update.callback_query.edit_message_text("❌ Learning handlers not available.")
+            return
+
+        # Extract trick_id from callback_data (e.g., "retry_trick_123")
+        try:
+            trick_id_to_retry = int(update.callback_query.data.split("_")[2])
+            await self.learning_handlers.retry_current_trick(update, context, trick_id_to_retry)
+        except (IndexError, ValueError) as e:
+            logger.error(f"Error parsing trick_id from callback_data '{update.callback_query.data}': {e}")
+            await update.callback_query.edit_message_text("❌ Ошибка: неверный формат данных для повтора.")
+
+
+    async def _handle_next_trick_callback(self, update, context: ActionContext):
+        """Handle next trick callback."""
+        if not self.learning_handlers:
+            await update.callback_query.edit_message_text("❌ Learning handlers not available.")
+            return
+
+        # Extract trick_id from callback_data (e.g., "next_trick_123")
+        try:
+            current_trick_id = int(update.callback_query.data.split("_")[2])
+            await self.learning_handlers.proceed_to_next_trick(update, context, current_trick_id)
+        except (IndexError, ValueError) as e:
+            logger.error(f"Error parsing trick_id from callback_data '{update.callback_query.data}': {e}")
+            await update.callback_query.edit_message_text("❌ Ошибка: неверный формат данных для перехода к следующему.")
