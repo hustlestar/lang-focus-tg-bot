@@ -1,0 +1,31 @@
+[Unit]
+Description=Lang Focus TG Bot Service
+After=syslog.target network.target
+
+[Service]
+User=jack
+WorkingDirectory=/home/jack/JACK/lang-focus-tg-bot
+ExecStart=/home/jack/JACK/lang-focus-tg-bot/.venv/bin/python /home/jack/JACK/lang-focus-tg-bot/src/bot.py
+
+# Improved restart settings
+Restart=always
+RestartSec=10s
+StartLimitInterval=5min
+StartLimitBurst=10
+
+# Ensure clean termination
+TimeoutStopSec=30s
+KillMode=mixed
+
+# Standard output logging
+StandardOutput=journal
+StandardError=journal
+
+# Environment variables
+Environment=PYTHONUNBUFFERED=1
+Environment="PATH=/usr/bin:/home/jack/JACK/lang-focus-tg-bot/.venv/bin:/home/jack/JACK/lang-focus-tg-bot"
+Environment=VIRTUAL_ENV=/home/jack/JACK/lang-focus-tg-bot/.venv
+Environment=PYTHONPATH=/usr/local/anaconda3/bin/python:/home/jack/JACK/lang-focus-tg-bot:.
+
+[Install]
+WantedBy=multi-user.target
