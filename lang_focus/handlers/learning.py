@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 class LearningHandlers:
     """Handles learning-specific bot interactions."""
 
+    MAX_TRICKS = 14  # Maximum number of language tricks
+
     def __init__(
             self,
             locale_manager: LocaleManager,
@@ -418,23 +420,39 @@ class LearningHandlers:
             await update.callback_query.edit_message_text("❌ Ошибка при получении подсказки.")
 
     async def _skip_trick(self, update: Update, context: ContextTypes.DEFAULT_TYPE, trick_id_to_skip: int) -> None:
-        """Skip current trick and move to next."""
+        """Skip current trick and move to next. If it's the last trick, complete the session."""
         user = update.effective_user
-        if not user:
+        if not user or not update.callback_query: # Should be called from callback
             return
 
         try:
             session = await self.session_manager.resume_session(user.id)
-            if session:
-                # Mark the skipped trick as processed
-                await self.session_manager.update_session_progress(session, trick_id_to_skip + 1)
+            if not session:
+                await update.callback_query.answer("❌ Нет активной сессии.")
+                return
 
+            potential_next_trick_id = trick_id_to_skip + 1
+
+            if potential_next_trick_id > self.MAX_TRICKS:
+                await self.session_manager.update_session_progress(session, trick_id_to_skip) # Mark current trick as seen
+                await update.callback_query.answer("🎓 Сессия завершена!")
+                summary = await self.session_manager.complete_session(session)
+                await self._present_session_summary_callback(update.callback_query, summary, is_send=True, update=update)
+            else:
+                # Proceed to the next trick
+                await self.session_manager.update_session_progress(session, potential_next_trick_id)
                 next_challenge = await self.session_manager.get_current_challenge(session)
                 if next_challenge:
                     await self._present_challenge(update, next_challenge, session)
                 else:
+                    # This case should ideally not be reached if potential_next_trick_id <= MAX_TRICKS
+                    # and get_current_challenge is robust.
+                    logger.warning(
+                        f"Unexpected: No challenge for trick {potential_next_trick_id} in session {session.id} after skip. Completing session."
+                    )
+                    await update.callback_query.answer("🎓 Сессия завершена!")
                     summary = await self.session_manager.complete_session(session)
-                    await self._present_session_summary(update, summary)
+                    await self._present_session_summary_callback(update.callback_query, summary, is_send=True, update=update)
 
         except Exception as e:
             logger.error(f"Error skipping trick: {e}")
@@ -449,8 +467,12 @@ class LearningHandlers:
         try:
             session = await self.session_manager.resume_session(user.id)
             if session:
+                await update.callback_query.answer("Сессия завершается...")
                 summary = await self.session_manager.complete_session(session)
-                await self._present_session_summary(update, summary)
+                # Use _present_session_summary_callback as this is from a callback
+                await self._present_session_summary_callback(update.callback_query, summary, is_send=True, update=update)
+            else:
+                await update.callback_query.answer("❌ Нет активной сессии для завершения.")
 
         except Exception as e:
             logger.error(f"Error ending session: {e}")
@@ -486,9 +508,9 @@ class LearningHandlers:
             await update.callback_query.answer("❌ Ошибка при повторе фокуса.")
 
     async def proceed_to_next_trick(self, update: Update, context: ContextTypes.DEFAULT_TYPE, current_trick_id: int) -> None:
-        """Proceed to next trick, sending new message."""
+        """Proceed to next trick. If it's the last trick, complete the session."""
         user = update.effective_user
-        if not user:
+        if not user or not update.callback_query: # Should be called from callback
             return
 
         try:
@@ -497,23 +519,31 @@ class LearningHandlers:
                 await update.callback_query.answer("❌ Нет активной сессии.")
                 return
 
-            # Mark the current trick as processed.
-            # update_session_progress will set session.current_trick_index to current_trick_id.
-            await self.session_manager.update_session_progress(session, current_trick_id + 1)
+            # current_trick_id is the one just completed or being moved from.
+            # We want to move to current_trick_id + 1.
+            potential_next_trick_id = current_trick_id + 1
 
-            # Get next challenge
-            # get_next_challenge will use the updated session.current_trick_index (which is current_trick_id)
-            # to determine the actual next trick (current_trick_id + 1).
-            next_challenge = await self.session_manager.get_current_challenge(session)
-            if next_challenge:
-                # Send new message instead of editing
-                await update.callback_query.answer("➡️ Переходим к следующему фокусу!")
-                await self._send_challenge_message(update, next_challenge, session)
-            else:
-                # Session complete
+            if potential_next_trick_id > self.MAX_TRICKS:
+                await self.session_manager.update_session_progress(session, current_trick_id) # Mark current trick as seen
                 await update.callback_query.answer("🎓 Сессия завершена!")
                 summary = await self.session_manager.complete_session(session)
-                await self._present_session_summary_callback(None, summary, is_send=True, update=update)
+                await self._present_session_summary_callback(update.callback_query, summary, is_send=True, update=update)
+            else:
+                # Proceed to the next trick
+                await self.session_manager.update_session_progress(session, potential_next_trick_id)
+                next_challenge = await self.session_manager.get_current_challenge(session)
+                if next_challenge:
+                    await update.callback_query.answer("➡️ Переходим к следующему фокусу!")
+                    await self._send_challenge_message(update, next_challenge, session)
+                else:
+                    # This case should ideally not be reached if potential_next_trick_id <= MAX_TRICKS
+                    # and get_current_challenge is robust.
+                    logger.warning(
+                        f"Unexpected: No challenge for trick {potential_next_trick_id} in session {session.id} after proceed. Completing session."
+                    )
+                    await update.callback_query.answer("🎓 Сессия завершена!")
+                    summary = await self.session_manager.complete_session(session)
+                    await self._present_session_summary_callback(update.callback_query, summary, is_send=True, update=update)
 
         except Exception as e:
             logger.error(f"Error proceeding to next trick: {e}")

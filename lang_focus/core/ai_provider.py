@@ -19,7 +19,7 @@ class OpenRouterProvider:
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             "HTTP-Referer": "https://github.com/telegram-bot-template",
-            "X-Title": "Telegram Bot Template",
+            "X-Title": "lang-focus",
         }
 
         logger.info(f"OpenRouter provider initialized with model: {model}")
