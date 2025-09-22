@@ -162,18 +162,16 @@ class BasicHandlers:
         about_text = self.locale_manager.format(
             "about_message",
             language=language,
-            bot_name=self.config.bot_name,
-            description=self.config.bot_description,
             version=self.config.bot_version,
         )
 
         keyboard = self.keyboard_manager.get_back_keyboard(language, callback_data='settings')
 
-        await query.edit_message_text(about_text, reply_markup=keyboard, parse_mode="Markdown")
+        await query.edit_message_text(about_text, reply_markup=keyboard, parse_mode="Markdown", disable_web_page_preview=True)
 
     async def _show_settings(self, query, language: str) -> None:
         """Show settings menu."""
-        settings_text = "⚙️ Settings"
+        settings_text = self.locale_manager.get("settings_menu", language)
         keyboard = self.keyboard_manager.get_settings_keyboard(language)
 
         await query.edit_message_text(settings_text, reply_markup=keyboard)

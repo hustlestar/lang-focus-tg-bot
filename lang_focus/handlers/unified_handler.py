@@ -43,6 +43,7 @@ class UnifiedBotHandler:
 
         # Initialize subscription manager
         self.subscription_manager = None
+        self.reminder_scheduler = None
         # Initialize handlers (will be set by bot setup)
         self.basic_handlers = None
         self.learning_handlers = None
@@ -56,6 +57,10 @@ class UnifiedBotHandler:
         """Set the basic and learning handlers."""
         self.basic_handlers = basic_handlers
         self.learning_handlers = learning_handlers
+
+    def set_reminder_scheduler(self, reminder_scheduler):
+        """Set the reminder scheduler."""
+        self.reminder_scheduler = reminder_scheduler
 
         # Set action handlers
         self._setup_action_handlers()
@@ -195,6 +200,13 @@ class UnifiedBotHandler:
                 # Subscription handlers
                 elif query.data == "check_subscription":
                     await self._handle_subscription_check_callback(query, action_context)
+                # Notifications settings handlers
+                elif query.data == "notifications_settings":
+                    await self._handle_notifications_settings(query, action_context)
+                elif query.data == "notifications_enable":
+                    await self._handle_notifications_toggle(query, action_context, True)
+                elif query.data == "notifications_disable":
+                    await self._handle_notifications_toggle(query, action_context, False)
                 # Navigation handlers
                 elif query.data == "back_to_main":
                     await self._handle_back_to_main(query, action_context)
@@ -369,7 +381,7 @@ class UnifiedBotHandler:
             return await self.basic_handlers._show_settings(context.callback_query, context.language)
         else:
             # Settings doesn't have a command, show via callback method
-            settings_text = "⚙️ Settings"
+            settings_text = self.locale_manager.get("settings_menu", context.language)
             keyboard = self.keyboard_manager.get_settings_keyboard(context.language)
             await update.message.reply_text(settings_text, reply_markup=keyboard)
 
@@ -872,3 +884,49 @@ class UnifiedBotHandler:
         except (IndexError, ValueError) as e:
             logger.error(f"Error parsing trick_id from callback_data '{update.callback_query.data}': {e}")
             await update.callback_query.edit_message_text("❌ Ошибка: неверный формат данных для перехода к следующему.")
+
+    async def _handle_notifications_settings(self, query, context: ActionContext):
+        """Show notifications settings menu."""
+        try:
+            # Check if user has reminder tracking record
+            enabled = True  # Default
+            if self.reminder_scheduler:
+                async with self.database._pool.acquire() as conn:
+                    check_query = "SELECT reminders_enabled FROM reminder_tracking WHERE user_id = $1"
+                    result = await conn.fetchrow(check_query, context.user_id)
+                    if result:
+                        enabled = result['reminders_enabled']
+
+            # Show status and options
+            status_text = self.locale_manager.get("notifications_enabled" if enabled else "notifications_disabled", context.language)
+            help_text = self.locale_manager.get("notifications_help", context.language)
+
+            message = f"{self.locale_manager.get('notifications_status', context.language).format(status=status_text)}\n\n{help_text}"
+
+            keyboard = self.keyboard_manager.get_notifications_keyboard(context.language, enabled)
+            await query.edit_message_text(message, reply_markup=keyboard, parse_mode="Markdown")
+
+        except Exception as e:
+            logger.error(f"Error showing notification settings: {e}")
+            await query.answer("❌ Ошибка при отображении настроек")
+
+    async def _handle_notifications_toggle(self, query, context: ActionContext, enable: bool):
+        """Toggle notifications on or off."""
+        try:
+            if not self.reminder_scheduler:
+                await query.answer("❌ Система напоминаний не активна")
+                return
+
+            # Update reminder settings
+            success = await self.reminder_scheduler.toggle_reminders(context.user_id, enable)
+
+            if success:
+                # Show updated settings
+                await query.answer(self.locale_manager.get("settings_updated", context.language))
+                await self._handle_notifications_settings(query, context)
+            else:
+                await query.answer("❌ Не удалось обновить настройки")
+
+        except Exception as e:
+            logger.error(f"Error toggling notifications: {e}")
+            await query.answer("❌ Ошибка при обновлении настроек")

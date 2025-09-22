@@ -18,6 +18,7 @@ from lang_focus.core.database import DatabaseManager
 from lang_focus.core.keyboard_manager import KeyboardManager
 from lang_focus.core.locale_manager import LocaleManager
 from lang_focus.core.ai_provider import OpenRouterProvider
+from lang_focus.core.reminder_scheduler import ReminderScheduler
 from lang_focus.learning import LearningSessionManager, TrickEngine, FeedbackEngine, ProgressTracker, LearningDataLoader
 from lang_focus.learning.session_manager import LearningSession, Challenge
 
@@ -36,12 +37,14 @@ class LearningHandlers:
             database: DatabaseManager,
             ai_provider: OpenRouterProvider,
             config: BotConfig,
+            reminder_scheduler: Optional[ReminderScheduler] = None,
     ):
         self.locale_manager = locale_manager
         self.keyboard_manager = keyboard_manager
         self.database = database
         self.ai_provider = ai_provider
         self.config = config
+        self.reminder_scheduler = reminder_scheduler
 
         # Initialize learning components
         self.data_loader = LearningDataLoader(config.database_url)
@@ -62,6 +65,10 @@ class LearningHandlers:
 
             # Start new learning session
             session = await self.session_manager.start_session(user.id)
+
+            # Update practice timestamp for reminder system
+            if self.reminder_scheduler:
+                await self.reminder_scheduler.update_practice_timestamp(user.id)
 
             # Get first challenge
             challenge = await self.session_manager.get_next_challenge(session)
@@ -84,6 +91,10 @@ class LearningHandlers:
         try:
             # Try to resume existing session
             session = await self.session_manager.resume_session(user.id)
+
+            # Update practice timestamp for reminder system
+            if session and self.reminder_scheduler:
+                await self.reminder_scheduler.update_practice_timestamp(user.id)
 
             if not session:
                 await update.message.reply_text("📚 У вас нет активной сессии. Начните новую командой /learn")
@@ -231,6 +242,10 @@ class LearningHandlers:
 
             # Process the response
             feedback = await self.session_manager.process_user_response(session, message_text, challenge.target_trick_id)
+
+            # Update practice timestamp when user responds
+            if self.reminder_scheduler:
+                await self.reminder_scheduler.update_practice_timestamp(user.id)
 
             # Present feedback
             await self._present_feedback(update, feedback, challenge)

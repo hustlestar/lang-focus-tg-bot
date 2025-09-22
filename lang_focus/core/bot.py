@@ -15,9 +15,11 @@ from lang_focus.handlers.basic import BasicHandlers
 from lang_focus.handlers.message import MessageHandler as MessageHandlerClass
 from lang_focus.handlers.learning import LearningHandlers
 from lang_focus.handlers.unified_handler import UnifiedBotHandler
+from lang_focus.handlers.maintainer import MaintainerHandlers
 from lang_focus.support.bot import SupportBot
 from lang_focus.learning import LearningDataLoader
 from lang_focus.utils.helpers import setup_logging
+from lang_focus.core.reminder_scheduler import ReminderScheduler
 
 # Set up enhanced logging
 setup_logging()
@@ -35,12 +37,14 @@ class TelegramBot:
         self.keyboard_manager: Optional[KeyboardManager] = None
         self.ai_provider: Optional[OpenRouterProvider] = None
         self.support_bot: Optional[SupportBot] = None
+        self.reminder_scheduler: Optional[ReminderScheduler] = None
 
         # Handlers
         self.basic_handlers: Optional[BasicHandlers] = None
         self.message_handler: Optional[MessageHandlerClass] = None
         self.learning_handlers: Optional[LearningHandlers] = None
         self.unified_handler: Optional[UnifiedBotHandler] = None
+        self.maintainer_handlers: Optional[MaintainerHandlers] = None
 
         # Learning components
         self.data_loader: Optional[LearningDataLoader] = None
@@ -118,6 +122,7 @@ class TelegramBot:
                     database=self.database,
                     ai_provider=self.ai_provider,
                     config=self.config,
+                    reminder_scheduler=None  # Will be set after app is created
                 )
                 logger.info("Learning handlers initialized")
 
@@ -137,6 +142,33 @@ class TelegramBot:
             # Create Telegram application
             self.app = Application.builder().token(self.config.bot_token).build()
             self.unified_handler.enable_subscription_manager(self.app.bot)
+
+            # Initialize reminder scheduler
+            self.reminder_scheduler = ReminderScheduler(
+                database=self.database,
+                bot=self.app.bot,
+                locale_manager=self.locale_manager
+            )
+            logger.info("Reminder scheduler initialized")
+
+            # Update learning handlers with reminder scheduler
+            if self.learning_handlers:
+                self.learning_handlers.reminder_scheduler = self.reminder_scheduler
+
+            # Update unified handler with reminder scheduler
+            if self.unified_handler:
+                self.unified_handler.set_reminder_scheduler(self.reminder_scheduler)
+
+            # Initialize maintainer handlers
+            self.maintainer_handlers = MaintainerHandlers(
+                locale_manager=self.locale_manager,
+                keyboard_manager=self.keyboard_manager,
+                database=self.database,
+                config=self.config,
+                reminder_scheduler=self.reminder_scheduler
+            )
+            logger.info("Maintainer handlers initialized")
+
             # Add handlers to application
             self._add_handlers()
 
@@ -163,6 +195,12 @@ class TelegramBot:
             self.app.add_handler(CommandHandler("progress", lambda u, c: self.unified_handler.handle_command(u, c, "progress")))
             self.app.add_handler(CommandHandler("tricks", lambda u, c: self.unified_handler.handle_command(u, c, "tricks")))
             self.app.add_handler(CommandHandler("stats", lambda u, c: self.unified_handler.handle_command(u, c, "stats")))
+
+        # Maintainer commands
+        self.app.add_handler(CommandHandler("force_reminder", self.maintainer_handlers.handle_force_reminder))
+        self.app.add_handler(CommandHandler("reminder_stats", self.maintainer_handlers.handle_reminder_stats))
+        self.app.add_handler(CommandHandler("reminders", self.maintainer_handlers.handle_toggle_reminders))
+        self.app.add_handler(CommandHandler("maintainer_help", self.maintainer_handlers.handle_maintainer_help))
 
         # Unified callback query handler
         self.app.add_handler(CallbackQueryHandler(self.unified_handler.handle_callback))
@@ -201,6 +239,11 @@ class TelegramBot:
             if self.support_bot:
                 await self.support_bot.start()
 
+            # Start reminder scheduler
+            if self.reminder_scheduler:
+                await self.reminder_scheduler.start()
+                logger.info("Reminder scheduler started")
+
             # Send startup notification
             await self._send_startup_notification()
 
@@ -224,6 +267,10 @@ class TelegramBot:
                 await self.app.updater.stop()
                 await self.app.stop()
                 await self.app.shutdown()
+
+            # Stop reminder scheduler
+            if self.reminder_scheduler:
+                await self.reminder_scheduler.stop()
 
             # Stop support bot
             if self.support_bot:
@@ -255,20 +302,76 @@ class TelegramBot:
             await self.stop()
 
     async def _send_startup_notification(self) -> None:
-        """Send startup notification to support if configured."""
-        if self.support_bot:
-            message = f"🚀 **{self.config.bot_name}** has started successfully!\n\n"
-            message += f"Version: {self.config.bot_version}\n"
-            message += f"AI Support: {'✅' if self.config.has_ai_support else '❌'}\n"
-            message += f"Support Bot: {'✅' if self.config.has_support_bot else '❌'}"
+        """Send startup notification to support and maintainer."""
+        message = f"🚀 **{self.config.bot_name}** запущен успешно!\n\n"
+        message += f"Версия: {self.config.bot_version}\n"
+        message += f"AI поддержка: {'✅' if self.config.has_ai_support else '❌'}\n"
+        message += f"Support Bot: {'✅' if self.config.has_support_bot else '❌'}\n"
+        message += f"Система напоминаний: ✅\n\n"
 
+        # Get database stats
+        if self.database:
+            try:
+                stats = await self.database.get_stats()
+                message += f"📊 Статистика:\n"
+                message += f"Всего пользователей: {stats.get('total_users', 0)}\n"
+                message += f"Активных пользователей: {stats.get('active_users', 0)}\n"
+            except Exception as e:
+                logger.error(f"Error getting stats for startup notification: {e}")
+
+        # Send to support bot if configured
+        if self.support_bot:
             await self.support_bot.send_notification(message)
+
+        # Send to maintainer if configured
+        if self.config.maintainer_id and self.app and self.app.bot:
+            try:
+                await self.app.bot.send_message(
+                    chat_id=self.config.maintainer_id,
+                    text=message,
+                    parse_mode="Markdown"
+                )
+                logger.info(f"Sent startup notification to maintainer {self.config.maintainer_id}")
+            except Exception as e:
+                error_msg = str(e).lower()
+                if "bot was blocked" in error_msg or "user is deactivated" in error_msg or "chat not found" in error_msg:
+                    logger.warning(f"Maintainer {self.config.maintainer_id} has blocked the bot or is deactivated")
+                else:
+                    logger.error(f"Failed to send startup notification to maintainer: {e}")
 
     async def _send_shutdown_notification(self) -> None:
-        """Send shutdown notification to support if configured."""
+        """Send shutdown notification to support and maintainer."""
+        message = f"🛑 **{self.config.bot_name}** остановлен.\n"
+
+        # Get final stats if available
+        if self.reminder_scheduler:
+            try:
+                reminder_stats = await self.reminder_scheduler.get_reminder_stats()
+                message += f"\n📊 Статистика напоминаний:\n"
+                message += f"Отслеживаемых: {reminder_stats.get('total_tracked_users', 0)}\n"
+                message += f"С включенными: {reminder_stats.get('reminders_enabled', 0)}\n"
+            except Exception as e:
+                logger.error(f"Error getting reminder stats for shutdown: {e}")
+
+        # Send to support bot if configured
         if self.support_bot:
-            message = f"🛑 **{self.config.bot_name}** is shutting down."
             await self.support_bot.send_notification(message)
+
+        # Send to maintainer if configured
+        if self.config.maintainer_id and self.app and self.app.bot:
+            try:
+                await self.app.bot.send_message(
+                    chat_id=self.config.maintainer_id,
+                    text=message,
+                    parse_mode="Markdown"
+                )
+                logger.info(f"Sent shutdown notification to maintainer {self.config.maintainer_id}")
+            except Exception as e:
+                error_msg = str(e).lower()
+                if "bot was blocked" in error_msg or "user is deactivated" in error_msg or "chat not found" in error_msg:
+                    logger.warning(f"Maintainer {self.config.maintainer_id} has blocked the bot or is deactivated")
+                else:
+                    logger.error(f"Failed to send shutdown notification to maintainer: {e}")
 
     async def get_stats(self) -> dict:
         """Get bot statistics."""

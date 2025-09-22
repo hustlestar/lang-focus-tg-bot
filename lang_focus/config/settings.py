@@ -46,6 +46,9 @@ class BotConfig:
     channel_username: Optional[str] = None
     channel_id: Optional[str] = None
 
+    # Maintainer settings
+    maintainer_id: Optional[int] = None
+
     # Logging settings
     log_level: str = "INFO"
 
@@ -91,6 +94,16 @@ class BotConfig:
         channel_username = os.getenv("CHANNEL_USERNAME")
         channel_id = os.getenv("CHANNEL_ID")
 
+        # Maintainer settings
+        maintainer_id_str = os.getenv("MAINTAINER_CHAT_ID")
+        maintainer_id = None
+        if maintainer_id_str:
+            try:
+                maintainer_id = int(maintainer_id_str.strip())
+            except ValueError:
+                logger.warning(f"Invalid MAINTAINER_CHAT_ID format: {maintainer_id_str}")
+                maintainer_id = None
+
         # Logging
         log_level = os.getenv("LOG_LEVEL", "INFO")
 
@@ -111,6 +124,7 @@ class BotConfig:
             subscription_required=subscription_required,
             channel_username=channel_username,
             channel_id=channel_id,
+            maintainer_id=maintainer_id,
             log_level=log_level,
         )
 

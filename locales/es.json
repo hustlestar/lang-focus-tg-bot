@@ -1,7 +1,7 @@
 {
   "welcome_message": "🤖 ¡Bienvenido a **{bot_name}**!\n\n{description}\n\n*Versión:* {version}\n\n¡Elige una opción abajo o simplemente envíame un mensaje!",
   "help_message": "ℹ️ **Ayuda**\n\nComandos disponibles:\n{available_commands}\n\n¡Solo envíame un mensaje y trataré de ayudarte!",
-  "about_message": "ℹ️ **Acerca de {bot_name}**\n\n{description}\n\n*Versión:* {version}\n\nCreado con la plantilla simplificada de Telegram Bot",
+  "about_message": "🌐 **Acerca de**\n\n🎯 Bot para aprender trucos del habla\nVersión: {version}\n\n🏢 **Desarrollado por OverX.ai**\n\nSolicitar productos de IA personalizados:\n🔗 [overx.ai](https://www.overx.ai?utm\\_source=lang\\_focus\\_bot&utm\\_medium=telegram&utm\\_campaign=about)\n💬 Telegram: @hustlestar\n\n🛠 Nuestros otros productos:\n• [Exchange Rates Pro](https://www.overx.ai/api/products/redirect?product=exchange-rates-pro&source=lang\\_focus\\_bot&medium=telegram&campaign=about)\n• [Block Website](https://www.overx.ai/api/products/redirect?product=block-website&source=lang\\_focus\\_bot&medium=telegram&campaign=about)\n• @world\\_word\\_war\\_bot\n• @belarus\\_law\\_support\\_bot",
   "language_changed": "✅ Idioma cambiado a español",
   "language_selection": "🌐 Por favor, selecciona tu idioma:",
   "back_to_main": "🔙 Volver al menú",
@@ -37,5 +37,14 @@
   "ask_to_subscribe": "📢 Suscribirse al Canal",
   "user_confirm_subscribed": "✅ Me Suscribí",
   "subscription_verified": "🎉 ¡Excelente! Suscripción confirmada. ¡Bienvenido!",
-  "subscription_failed": "❌ Suscripción no encontrada. Por favor suscríbete al canal e inténtalo de nuevo."
+  "subscription_failed": "❌ Suscripción no encontrada. Por favor suscríbete al canal e inténtalo de nuevo.",
+  "notifications": "🔔 Notificaciones",
+  "notifications_enabled": "✅ Notificaciones activadas",
+  "notifications_disabled": "🔕 Notificaciones desactivadas",
+  "enable_notifications": "🔔 Activar notificaciones",
+  "disable_notifications": "🔕 Desactivar notificaciones",
+  "settings_menu": "⚙️ Configuración\n\nElige qué configurar:",
+  "notifications_status": "📊 Estado de notificaciones: {status}",
+  "notifications_help": "Las notificaciones se envían una vez cada 7 días si no has practicado.",
+  "settings_updated": "✅ Configuración actualizada"
 }

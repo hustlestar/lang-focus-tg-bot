@@ -52,15 +52,31 @@ class KeyboardManager:
 
         if cache_key not in self._keyboards_cache:
             keyboard = [
-                [InlineKeyboardButton(self.locale_manager.get("help", language), callback_data="help")],
-                [InlineKeyboardButton(self.locale_manager.get("about", language), callback_data="about")],
+                [InlineKeyboardButton(self.locale_manager.get("notifications", language), callback_data="notifications_settings")],
                 [InlineKeyboardButton(self.locale_manager.get("language", language), callback_data="change_language")],
+                [InlineKeyboardButton(self.locale_manager.get("about", language), callback_data="about")],
                 [InlineKeyboardButton(self.locale_manager.get("back_to_main", language), callback_data="back_to_main")],
             ]
 
             self._keyboards_cache[cache_key] = InlineKeyboardMarkup(keyboard)
 
         return self._keyboards_cache[cache_key]
+
+    def get_notifications_keyboard(self, language: str = "en", enabled: bool = True) -> InlineKeyboardMarkup:
+        """Get the notifications settings keyboard."""
+        if enabled:
+            toggle_text = self.locale_manager.get("disable_notifications", language)
+            toggle_callback = "notifications_disable"
+        else:
+            toggle_text = self.locale_manager.get("enable_notifications", language)
+            toggle_callback = "notifications_enable"
+
+        keyboard = [
+            [InlineKeyboardButton(toggle_text, callback_data=toggle_callback)],
+            [InlineKeyboardButton(self.locale_manager.get("back_to_settings", language), callback_data="settings")],
+        ]
+
+        return InlineKeyboardMarkup(keyboard)
 
     def get_language_selection_keyboard(self, current_language: str = "en") -> InlineKeyboardMarkup:
         """Get the language selection keyboard."""

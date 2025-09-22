@@ -1,7 +1,7 @@
 {
   "welcome_message": "🤖 Welcome to **{bot_name}**!\n\n{description}\n\n*Version:* {version}\n\nChoose an option below or just send me a message!",
   "help_message": "ℹ️ **Help**\n\nAvailable commands:\n{available_commands}\n\nJust send me a message and I'll try to help you!",
-  "about_message": "ℹ️ **About {bot_name}**\n\n{description}\n\n*Version:* {version}\n\nBuilt with the Simplified Telegram Bot Template",
+  "about_message": "🌐 **About**\n\n🎯 Bot for learning speech tricks\nVersion: {version}\n\n🏢 **Developed by OverX.ai**\n\nOrder custom AI products:\n🔗 [overx.ai](https://www.overx.ai?utm\\_source=lang\\_focus\\_bot&utm\\_medium=telegram&utm\\_campaign=about)\n💬 Telegram: @hustlestar\n\n🛠 Our other products:\n• [Exchange Rates Pro](https://www.overx.ai/api/products/redirect?product=exchange-rates-pro&source=lang\\_focus\\_bot&medium=telegram&campaign=about)\n• [Block Website](https://www.overx.ai/api/products/redirect?product=block-website&source=lang\\_focus\\_bot&medium=telegram&campaign=about)\n• @world\\_word\\_war\\_bot\n• @belarus\\_law\\_support\\_bot",
   "language_changed": "✅ Language changed to English",
   "language_selection": "🌐 Please select your language:",
   "back_to_main": "🔙 Back to Menu",
@@ -37,5 +37,14 @@
   "ask_to_subscribe": "📢 Subscribe to Channel",
   "user_confirm_subscribed": "✅ I Subscribed",
   "subscription_verified": "🎉 Great! Subscription confirmed. Welcome!",
-  "subscription_failed": "❌ Subscription not found. Please subscribe to the channel and try again."
+  "subscription_failed": "❌ Subscription not found. Please subscribe to the channel and try again.",
+  "notifications": "🔔 Notifications",
+  "notifications_enabled": "✅ Notifications enabled",
+  "notifications_disabled": "🔕 Notifications disabled",
+  "enable_notifications": "🔔 Enable notifications",
+  "disable_notifications": "🔕 Disable notifications",
+  "settings_menu": "⚙️ Settings\n\nChoose what to configure:",
+  "notifications_status": "📊 Notification status: {status}",
+  "notifications_help": "Notifications are sent once every 7 days if you haven't practiced.",
+  "settings_updated": "✅ Settings updated"
 }
