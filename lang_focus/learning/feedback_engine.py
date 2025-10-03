@@ -213,11 +213,11 @@ class FeedbackEngine:
     async def _generate_next_steps(self, analysis: ResponseAnalysis, target_trick: LanguageTrick) -> str:
         """Generate next steps recommendation."""
         if analysis.score >= 80:
-            return f"Отлично! Вы освоили фокус '{target_trick.name}'. Переходите к следующему фокусу или практикуйте более сложные утверждения."
+            return f"Отлично! Переходите к следующему фокусу или практикуйте более сложные утверждения."
         elif analysis.score >= 50:
-            return f"Хороший прогресс! Попробуйте еще несколько примеров с фокусом '{target_trick.name}' для закрепления."
+            return ""
         else:
-            return f"Изучите определение и примеры фокуса '{target_trick.name}', затем попробуйте снова."
+            return f"Изучите определение и примеры, затем попробуйте снова."
 
     async def score_response(self, response: str, target_trick: LanguageTrick, statement: str) -> float:
         """Score a response (0-100)."""

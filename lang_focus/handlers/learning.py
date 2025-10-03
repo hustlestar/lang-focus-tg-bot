@@ -268,12 +268,11 @@ class LearningHandlers:
         """Present a learning challenge to the user."""
         message = f"🎯 **Фокус {challenge.target_trick_id}: {challenge.target_trick_name}**\n\n"
         message += f"📝 **Определение:** {challenge.target_trick_definition}\n\n"
-        message += f'💭 **Утверждение для работы:**\n*"{challenge.statement_text}"*\n\n'
-        message += f'🎭 **Ваша задача:** Примените фокус "{challenge.target_trick_name}" к данному утверждению.\n\n'
+        message += f'💭 **Утверждение:**\n*"{challenge.statement_text}"*\n\n'
 
         if challenge.statement_difficulty != "сложный":
             if challenge.examples:
-                message += f"💡 **Примеры применения:**\n"
+                message += f"💡 **Примеры:**\n"
                 for example in challenge.examples:
                     message += f"• {example}\n"
                 message += "\n"
@@ -284,7 +283,7 @@ class LearningHandlers:
                     message += f"• {keyword}\n"
                 message += "\n"
 
-        message += f"✍️ Напишите свой ответ, используя этот фокус:"
+        message += f'🎭 Примените фокус "{challenge.target_trick_name}" к данному утверждению.'
 
         # Add keyboard for help and skip
         keyboard = [
@@ -316,24 +315,26 @@ class LearningHandlers:
             score_emoji = "💪"
 
         message = f"{score_emoji} **Оценка: {analysis.score:.0f}/100**\n\n"
-        message += f"📝 **Обратная связь:**\n{analysis.feedback}\n\n"
 
         if feedback.encouragement:
-            message += f"💬 {feedback.encouragement}\n\n"
+            message += f"{feedback.encouragement}\n\n"
+
+        message += f"📝 {analysis.feedback}\n\n"
 
         if analysis.improvements:
-            message += f"🎯 **Рекомендации для улучшения:**\n"
+            message += f"🎯 **Рекомендации:**\n"
             for improvement in analysis.improvements:
                 message += f"• {improvement}\n"
             message += "\n"
 
         if feedback.examples:
-            message += f"💡 **Дополнительные примеры:**\n"
+            message += f"💡 **Примеры:**\n"
             for example in feedback.examples:
                 message += f"• {example}\n"
             message += "\n"
 
-        message += feedback.next_steps
+        if feedback.next_steps:
+            message += feedback.next_steps
 
         # Add keyboard for next actions
         keyboard = []
@@ -568,12 +569,11 @@ class LearningHandlers:
         """Present a learning challenge via callback query."""
         message = f"🎯 **Фокус {challenge.target_trick_id}: {challenge.target_trick_name}**\n\n"
         message += f"📝 **Определение:** {challenge.target_trick_definition}\n\n"
-        message += f'💭 **Утверждение для работы:**\n*"{challenge.statement_text}"*\n\n'
-        message += f'🎭 **Ваша задача:** Примените фокус "{challenge.target_trick_name}" к данному утверждению.\n\n'
+        message += f'💭 **Утверждение:**\n*"{challenge.statement_text}"*\n\n'
 
         if challenge.statement_difficulty != "сложный":
             if challenge.examples:
-                message += f"💡 **Примеры применения:**\n"
+                message += f"💡 **Примеры:**\n"
                 for example in challenge.examples:
                     message += f"• {example}\n"
                 message += "\n"
@@ -584,7 +584,7 @@ class LearningHandlers:
                     message += f"• {keyword}\n"
                 message += "\n"
 
-        message += f"✍️ Напишите свой ответ, используя этот фокус:"
+        message += f'🎭 Примените фокус "{challenge.target_trick_name}" к данному утверждению.'
 
         # Add keyboard for help and skip
         keyboard = [
@@ -635,12 +635,11 @@ class LearningHandlers:
         """Send a new challenge message from callback query."""
         message = f"🎯 **Фокус {challenge.target_trick_id}: {challenge.target_trick_name}**\n\n"
         message += f"📝 **Определение:** {challenge.target_trick_definition}\n\n"
-        message += f'💭 **Утверждение для работы:**\n*"{challenge.statement_text}"*\n\n'
-        message += f'🎭 **Ваша задача:** Примените фокус "{challenge.target_trick_name}" к данному утверждению.\n\n'
+        message += f'💭 **Утверждение:**\n*"{challenge.statement_text}"*\n\n'
 
         if challenge.statement_difficulty != "сложный":
             if challenge.examples:
-                message += f"💡 **Примеры применения:**\n"
+                message += f"💡 **Примеры:**\n"
                 for example in challenge.examples:
                     message += f"• {example}\n"
                 message += "\n"
@@ -651,7 +650,7 @@ class LearningHandlers:
                     message += f"• {keyword}\n"
                 message += "\n"
 
-        message += f"✍️ Напишите свой ответ, используя этот фокус:"
+        message += f'🎭 Примените фокус "{challenge.target_trick_name}" к данному утверждению.'
 
         # Add keyboard for help and skip
         keyboard = [
