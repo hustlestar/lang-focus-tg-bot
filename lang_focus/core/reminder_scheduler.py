@@ -127,11 +127,20 @@ class ReminderScheduler:
                 # Get users who need reminders
                 users_to_remind = await self._get_users_to_remind(conn)
 
+                logger.info(f"Starting reminder batch send to {len(users_to_remind)} users")
+
                 for user_data in users_to_remind:
                     try:
-                        await self._send_reminder(user_data['user_id'], conn)
+                        await self._send_reminder(
+                            user_data['user_id'],
+                            user_data.get('username'),
+                            conn
+                        )
                     except Exception as e:
-                        logger.error(f"Failed to send reminder to user {user_data['user_id']}: {e}")
+                        user_handle = f"@{user_data.get('username')}" if user_data.get('username') else "unknown"
+                        logger.error(f"Failed to send reminder to User {user_data['user_id']} ({user_handle}): {e}")
+
+                logger.info(f"Completed reminder batch send")
 
         except Exception as e:
             logger.error(f"Error checking reminders: {e}")
@@ -146,10 +155,12 @@ class ReminderScheduler:
         query = """
             SELECT
                 rt.user_id,
+                u.username,
                 rt.last_practice_date,
                 rt.last_reminder_date,
                 rt.reminder_count
             FROM reminder_tracking rt
+            INNER JOIN users u ON rt.user_id = u.user_id
             WHERE
                 rt.reminders_enabled = true
                 AND (
@@ -159,11 +170,25 @@ class ReminderScheduler:
         """
 
         rows = await conn.fetch(query, seven_days_ago)
-        return [dict(row) for row in rows]
+        users = [dict(row) for row in rows]
 
-    async def _send_reminder(self, user_id: int, conn: asyncpg.Connection):
+        # Log qualifying users for debugging
+        if users:
+            logger.info(f"Found {len(users)} users qualifying for reminders")
+            for user in users:
+                logger.debug(f"  - User {user['user_id']} (@{user['username'] or 'unknown'})")
+        else:
+            logger.info("No users qualify for reminders at this time")
+
+        return users
+
+    async def _send_reminder(self, user_id: int, username: Optional[str], conn: asyncpg.Connection):
         """Send reminder notification to a user."""
+        user_handle = f"@{username}" if username else "unknown"
         try:
+            # Log start of send attempt
+            logger.info(f"Sending reminder to User {user_id} ({user_handle})")
+
             # Get promotional message (cycle through them)
             message = PROMOTIONAL_MESSAGES[self._message_index % len(PROMOTIONAL_MESSAGES)]
             self._message_index += 1
@@ -193,18 +218,21 @@ class ReminderScheduler:
                 user_id
             )
 
-            logger.info(f"Sent reminder to user {user_id}")
+            logger.info(f"Successfully sent reminder to User {user_id} ({user_handle})")
 
         except TelegramError as e:
             error_msg = str(e).lower()
             if "bot was blocked" in error_msg or "user is deactivated" in error_msg or "chat not found" in error_msg:
                 # Disable reminders for this user
                 await self._disable_reminders(user_id, conn)
-                logger.warning(f"User {user_id} has blocked the bot - disabling reminders")
+                logger.info(f"User {user_id} ({user_handle}) has blocked the bot - disabling reminders")
+                logger.warning(f"User {user_id} ({user_handle}) has blocked the bot - disabling reminders")
             else:
-                logger.error(f"Telegram error sending reminder to {user_id}: {e}")
+                logger.info(f"Failed to send reminder to User {user_id} ({user_handle}): {e}")
+                logger.error(f"Telegram error sending reminder to User {user_id} ({user_handle}): {e}")
         except Exception as e:
-            logger.error(f"Error sending reminder to {user_id}: {e}")
+            logger.info(f"Error sending reminder to User {user_id} ({user_handle}): {e}")
+            logger.error(f"Error sending reminder to User {user_id} ({user_handle}): {e}")
 
     async def _disable_reminders(self, user_id: int, conn: asyncpg.Connection):
         """Disable reminders for a user (e.g., if they blocked the bot)."""
@@ -234,14 +262,16 @@ class ReminderScheduler:
 
         try:
             async with self.database._pool.acquire() as conn:
-                # Get all user IDs from database
-                query = "SELECT DISTINCT user_id FROM users ORDER BY user_id"
+                # Get all user IDs and usernames from database
+                query = "SELECT DISTINCT user_id, username FROM users ORDER BY user_id"
                 rows = await conn.fetch(query)
 
                 logger.info(f"Sending reminders to {len(rows)} users...")
 
                 for row in rows:
                     user_id = row['user_id']
+                    username = row['username']
+                    user_handle = f"@{username}" if username else "unknown"
                     try:
                         # Use rotating messages
                         message = PROMOTIONAL_MESSAGES[self._message_index % len(PROMOTIONAL_MESSAGES)]
@@ -255,7 +285,7 @@ class ReminderScheduler:
                         )
 
                         sent_count += 1
-                        logger.debug(f"Sent reminder to user {user_id}")
+                        logger.info(f"Sent reminder to User {user_id} ({user_handle})")
 
                         # Small delay to avoid rate limiting
                         await asyncio.sleep(0.1)
@@ -263,14 +293,16 @@ class ReminderScheduler:
                     except TelegramError as e:
                         error_msg = str(e).lower()
                         if "bot was blocked" in error_msg or "user is deactivated" in error_msg or "chat not found" in error_msg:
-                            logger.debug(f"User {user_id} has blocked the bot")
+                            logger.info(f"User {user_id} ({user_handle}) has blocked the bot")
                             # Optionally disable reminders for this user
                             await self._disable_reminders(user_id, conn)
                         else:
-                            logger.error(f"Failed to send reminder to {user_id}: {e}")
+                            logger.info(f"Failed to send reminder to User {user_id} ({user_handle}): {e}")
+                            logger.error(f"Failed to send reminder to User {user_id} ({user_handle}): {e}")
                         failed_count += 1
                     except Exception as e:
-                        logger.error(f"Unexpected error sending to {user_id}: {e}")
+                        logger.info(f"Unexpected error sending to User {user_id} ({user_handle}): {e}")
+                        logger.error(f"Unexpected error sending to User {user_id} ({user_handle}): {e}")
                         failed_count += 1
 
                 logger.info(f"Force sent reminders: {sent_count} successful, {failed_count} failed")
@@ -284,12 +316,15 @@ class ReminderScheduler:
         """Force send a reminder to a specific user (maintainer command)."""
         try:
             async with self.database._pool.acquire() as conn:
-                # Check if user exists
-                user_query = "SELECT user_id FROM users WHERE user_id = $1"
-                result = await conn.fetchval(user_query, user_id)
-                if not result:
+                # Check if user exists and get username
+                user_query = "SELECT user_id, username FROM users WHERE user_id = $1"
+                user_row = await conn.fetchrow(user_query, user_id)
+                if not user_row:
                     logger.warning(f"User {user_id} not found")
                     return False
+
+                username = user_row['username']
+                user_handle = f"@{username}" if username else "unknown"
 
                 # Send reminder
                 message = PROMOTIONAL_MESSAGES[0]  # Use first message for forced reminders
@@ -301,21 +336,24 @@ class ReminderScheduler:
                     disable_web_page_preview=True
                 )
 
-                logger.info(f"Force sent reminder to user {user_id}")
+                logger.info(f"Force sent reminder to User {user_id} ({user_handle})")
                 return True
 
         except TelegramError as e:
             error_msg = str(e).lower()
             if "bot was blocked" in error_msg or "user is deactivated" in error_msg or "chat not found" in error_msg:
+                logger.info(f"User {user_id} has blocked the bot")
                 logger.warning(f"User {user_id} has blocked the bot")
                 # Optionally disable reminders for this user
                 async with self.database._pool.acquire() as conn:
                     await self._disable_reminders(user_id, conn)
             else:
-                logger.error(f"Telegram error force sending reminder to {user_id}: {e}")
+                logger.info(f"Telegram error force sending reminder to User {user_id}: {e}")
+                logger.error(f"Telegram error force sending reminder to User {user_id}: {e}")
             return False
         except Exception as e:
-            logger.error(f"Error force sending reminder to {user_id}: {e}")
+            logger.info(f"Error force sending reminder to User {user_id}: {e}")
+            logger.error(f"Error force sending reminder to User {user_id}: {e}")
             return False
 
     async def update_practice_timestamp(self, user_id: int):
