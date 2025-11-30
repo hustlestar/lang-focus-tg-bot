@@ -120,6 +120,9 @@ class DatabaseManager:
                     )
                     logger.debug(f"Updated username for user {user_id}")
 
+                # Ensure reminder tracking record exists
+                await self._ensure_reminder_tracking(user_id, conn)
+
                 return dict(user)
             else:
                 # Create new user
@@ -133,6 +136,9 @@ class DatabaseManager:
                     language,
                     datetime.utcnow(),
                 )
+
+                # Create reminder tracking record for new user
+                await self._ensure_reminder_tracking(user_id, conn)
 
                 # Get the created user
                 user = await conn.fetchrow("SELECT * FROM users WHERE user_id = $1", user_id)
@@ -210,3 +216,18 @@ class DatabaseManager:
                 "recent_users_24h": recent_users or 0,
                 "language_distribution": {row["language"]: row["count"] for row in language_stats},
             }
+
+    async def _ensure_reminder_tracking(self, user_id: int, conn):
+        """Ensure reminder tracking record exists for user."""
+        # Check if tracking record exists
+        check_query = "SELECT id FROM reminder_tracking WHERE user_id = $1"
+        exists = await conn.fetchval(check_query, user_id)
+
+        if not exists:
+            # Create new tracking record with default values
+            insert_query = """
+                INSERT INTO reminder_tracking (user_id, reminders_enabled, created_at, updated_at)
+                VALUES ($1, $2, $3, $4)
+            """
+            await conn.execute(insert_query, user_id, True, datetime.utcnow(), datetime.utcnow())
+            logger.debug(f"Created reminder tracking record for user {user_id}")

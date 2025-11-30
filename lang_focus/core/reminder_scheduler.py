@@ -152,6 +152,7 @@ class ReminderScheduler:
         # SQL query to find users who:
         # 1. Have reminders enabled
         # 2. Haven't practiced in 7+ days OR haven't been reminded in 7+ days
+        # 3. Handle NULL values properly
         query = """
             SELECT
                 rt.user_id,
@@ -165,7 +166,7 @@ class ReminderScheduler:
                 rt.reminders_enabled = true
                 AND (
                     (rt.last_practice_date IS NULL OR rt.last_practice_date <= $1)
-                    AND (rt.last_reminder_date IS NULL OR rt.last_reminder_date <= $1)
+                    OR (rt.last_reminder_date IS NULL OR rt.last_reminder_date <= $1)
                 )
         """
 
@@ -176,7 +177,9 @@ class ReminderScheduler:
         if users:
             logger.info(f"Found {len(users)} users qualifying for reminders")
             for user in users:
-                logger.debug(f"  - User {user['user_id']} (@{user['username'] or 'unknown'})")
+                last_practice = user['last_practice_date'].strftime('%Y-%m-%d') if user['last_practice_date'] else 'never'
+                last_reminder = user['last_reminder_date'].strftime('%Y-%m-%d') if user['last_reminder_date'] else 'never'
+                logger.debug(f"  - User {user['user_id']} (@{user['username'] or 'unknown'}) - Last practice: {last_practice}, Last reminder: {last_reminder}")
         else:
             logger.info("No users qualify for reminders at this time")
 
