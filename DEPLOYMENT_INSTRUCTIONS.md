@@ -17,6 +17,11 @@ sudo systemctl restart lang-focus-bot
 sudo journalctl -u lang-focus-bot -f --since "1 minute ago"
 ```
 
+## Important Fix: Reminder Frequency Logic
+The corrected logic now ensures users receive reminders **only once every 7 days**, not daily after 7 days of inactivity:
+- **Before**: Users who haven't practiced in 7+ days OR haven't been reminded in 7+ days (would send daily)
+- **After**: Users who haven't practiced in 7+ days AND haven't been reminded in 7+ days (sends weekly)
+
 ## Detailed Step-by-Step Instructions
 
 ### Step 1: Update Code on Server

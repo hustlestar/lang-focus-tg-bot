@@ -151,8 +151,9 @@ class ReminderScheduler:
 
         # SQL query to find users who:
         # 1. Have reminders enabled
-        # 2. Haven't practiced in 7+ days OR haven't been reminded in 7+ days
+        # 2. Haven't practiced in 7+ days AND haven't been reminded in 7+ days
         # 3. Handle NULL values properly
+        # This ensures users get reminders ONLY when both conditions are met, preventing daily reminders
         query = """
             SELECT
                 rt.user_id,
@@ -164,10 +165,8 @@ class ReminderScheduler:
             INNER JOIN users u ON rt.user_id = u.user_id
             WHERE
                 rt.reminders_enabled = true
-                AND (
-                    (rt.last_practice_date IS NULL OR rt.last_practice_date <= $1)
-                    OR (rt.last_reminder_date IS NULL OR rt.last_reminder_date <= $1)
-                )
+                AND (rt.last_practice_date IS NULL OR rt.last_practice_date <= $1)
+                AND (rt.last_reminder_date IS NULL OR rt.last_reminder_date <= $1)
         """
 
         rows = await conn.fetch(query, seven_days_ago)
